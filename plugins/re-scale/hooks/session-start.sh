@@ -7,7 +7,7 @@ set -euo pipefail
 #   2. auto-start the standalone Metals MCP server for Scala projects
 # ─────────────────────────────────────────────────────────────
 
-RESCALE_VERSION="0.1.5"
+RESCALE_VERSION="0.1.6"
 
 # Where to find / put the re-scale source tree. Override with RESCALE_HOME.
 RESCALE_HOME="${RESCALE_HOME:-$HOME/.local/share/re-scale/$RESCALE_VERSION}"
