@@ -25,7 +25,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("parses a full-port covenant header (source-reference field)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -52,7 +53,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("backward-compat: parses Covenant-dart-reference into sourceReference") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-dart-reference: lib/src/old.dart
@@ -66,7 +68,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("returns None when no Covenant: line is present") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | * (no covenant header at all)
@@ -80,7 +83,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a non-covenanted file returns Left(no covenant header)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """package x
         |class Y { def z: Int = 1 }
         |""".stripMargin
@@ -92,7 +96,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a partial-port covenant returns Right (only full-port enforced)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: partial-port
         | * Covenant-baseline-methods: foo
@@ -107,7 +112,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a full-port file with no missing methods passes") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-methods: alpha,beta
@@ -125,7 +131,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a full-port file with a removed method fails") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-methods: alpha,beta,gamma
@@ -139,6 +146,87 @@ final class CovenantSpec extends CatsEffectSuite {
     Covenant.verify(f).map {
       case Left(reason) => assert(reason.contains("gamma"))
       case Right(_)     => fail("expected Left for removed method")
+    }
+  }
+
+  // -- original-invention exemption ------------------------------------
+
+  test("isOriginalInvention is true when Covenant-type: original-invention is present (no Covenant line)") {
+    val f = writeFile(
+      "a.scala",
+      """/*
+        | * Copyright 2026 acme
+        | *
+        | * Covenant-type: original-invention
+        | */
+        |package x
+        |""".stripMargin
+    )
+    Covenant.isOriginalInvention(f).map(b => assert(b, "expected original-invention marker to be detected"))
+  }
+
+  test("isOriginalInvention is false for an ordinary file") {
+    val f = writeFile(
+      "a.scala",
+      """/*
+        | * Copyright 2026 acme
+        | */
+        |package x
+        |""".stripMargin
+    )
+    Covenant.isOriginalInvention(f).map(b => assert(!b))
+  }
+
+  test("parse exposes covenantType when present") {
+    val f = writeFile(
+      "a.scala",
+      """/*
+        | * Covenant: original
+        | * Covenant-type: original-invention
+        | */
+        |package x
+        |""".stripMargin
+    )
+    Covenant.parse(f).map { hdr =>
+      assertEquals(hdr.flatMap(_.covenantType), Some("original-invention"))
+    }
+  }
+
+  test("verify PASSES an original-invention file even with otherwise-flagged patterns and no Covenant line") {
+    val f = writeFile(
+      "a.scala",
+      """/*
+        | * Covenant-type: original-invention
+        | */
+        |package x
+        |object Original {
+        |  // TODO: this would normally be flagged as a shortcut
+        |  def stubbed: Int = ???
+        |}
+        |""".stripMargin
+    )
+    Covenant.verify(f).map {
+      case Right(()) => ()
+      case Left(r)   => fail(s"expected exempt PASS for original invention; got Left($r)")
+    }
+  }
+
+  test("verify still FAILS an unmarked file that uses shortcut patterns under a full-port covenant") {
+    val f = writeFile(
+      "a.scala",
+      """/*
+        | * Covenant: full-port
+        | * Covenant-baseline-methods: stubbed
+        | */
+        |package x
+        |object Ported {
+        |  def stubbed: Int = ??? // TODO
+        |}
+        |""".stripMargin
+    )
+    Covenant.verify(f).map {
+      case Left(reason) => assert(reason.contains("shortcuts"), s"expected shortcut failure; got $reason")
+      case Right(_)     => fail("expected Left for unmarked file with shortcut")
     }
   }
 }

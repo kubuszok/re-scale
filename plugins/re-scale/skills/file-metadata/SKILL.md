@@ -26,7 +26,9 @@ Properties come from two sources in the leading block comment:
 
 - **Covenant fields** (normalized without prefix): `covenant`, `baseline-spec-pass`,
   `baseline-loc`, `baseline-methods`, `source-reference`, `java-reference`,
-  `dart-reference`, `verified`
+  `dart-reference`, `verified`, `type`
+  (`Covenant-type` normalizes to `type`; value `original-invention` marks the
+  file as OUR ORIGINAL INVENTION, exempt from all enforcement — see below)
 - **Plain fields**: `original-src`, `authors`, `upstream-commit`, `module`,
   `status`, `tags`, or any custom `key: value` in the header comment
 - **Migration notes** (also parsed): `renames`, `convention`, `idiom`, `audited`
@@ -110,6 +112,25 @@ hash into `upstream-commit` in the file header, and auto-updates
 `source_sync_commit` in migration.tsv.
 
 Use `--dry-run` first to preview what would change.
+
+## Marking a file as our original invention
+
+A file written from scratch (not ported from any upstream source) can opt out
+of all port-faithfulness enforcement by carrying this header field:
+
+```
+ * Covenant-type: original-invention
+```
+
+The enforcement engine (`Covenant.parse` / `enforce verify` / `shortcuts` /
+`stale-stubs`) reads the raw `Covenant-type` key directly and treats any file
+whose value is `original-invention` as an unconditional PASS, even with no
+`Covenant:` line present. In `fileinfo` queries the same field is normalized to
+`type` (the `Covenant-` prefix is dropped), so find such files with:
+
+```
+re-scale fileinfo --given <dir> --when "type=original-invention" --then "select *"
+```
 
 ## When to use fileinfo vs reading the file
 

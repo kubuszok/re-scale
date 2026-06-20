@@ -4,6 +4,15 @@ description: Audit a ported Scala file against its original source — runs shor
 
 Audit the file at `$ARGUMENTS` against its original source.
 
+## Original invention exemption
+
+If the header carries `Covenant-type: original-invention`, the file is OUR
+ORIGINAL INVENTION — not a port of anything. There is no original source to
+compare against. Skip the compare/verify steps below: `enforce verify`,
+`shortcuts`, and `stale-stubs` all treat it as an unconditional PASS, and no
+covenant stamp is needed. Record the audit result as `pass` with a note that it
+is an original invention.
+
 ## Procedure
 
 1. Read the file's header properties (without opening the full file):
