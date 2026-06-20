@@ -25,6 +25,16 @@
  * Backward compat: BOTH `Covenant-source-reference` (worktree) and
  * `Covenant-dart-reference` (main repo's sass-port branch) parse into
  * the same `sourceReference` field. New writes use `source-reference`.
+ *
+ * Original-invention exemption: a file whose header carries
+ *
+ *   * Covenant-type: original-invention
+ *
+ * is OUR ORIGINAL INVENTION — not a port of any upstream source. Such a
+ * file is exempt from ALL port-faithfulness enforcement (covenant
+ * verify, shortcuts scan, stale-stubs scan) and treated as an
+ * unconditional PASS. The marker is recognised even when no `Covenant:`
+ * line is present, so an original file needs no baseline stamp at all.
  */
 package rescale.enforce
 
@@ -37,20 +47,29 @@ import java.io.File
 object Covenant {
 
   final case class Header(
-    covenant:         String, // "full-port", "partial-port", etc.
+    covenant: String, // "full-port", "partial-port", etc.
     baselineSpecPass: Int,
-    baselineLoc:      Int,
-    baselineMethods:  Set[String],
-    sourceReference:  String,
-    verified:         String
+    baselineLoc: Int,
+    baselineMethods: Set[String],
+    sourceReference: String,
+    verified: String,
+    covenantType: Option[String] // `Covenant-type` field, e.g. "original-invention"
   )
 
-  /** Streaming header parse. Reads at most 80 lines from the file's
-    * top before giving up. Holds zero file content beyond the in-flight
-    * line.
-    */
+  /**
+   * The `Covenant-type` value that marks a file as our original
+   * invention (not a port). Files carrying it are exempt from all
+   * port-faithfulness enforcement.
+   */
+  val OriginalInvention: String = "original-invention"
+
+  /**
+   * Streaming header parse. Reads at most 80 lines from the file's
+   * top before giving up. Holds zero file content beyond the in-flight
+   * line.
+   */
   def parse(path: Path): IO[Option[Header]] = {
-    val initial: ParseAcc = ParseAcc(None, None, None, None, None, None)
+    val initial: ParseAcc = ParseAcc(None, None, None, None, None, None, None)
     FileOps
       .streamLines(path)
       .take(80)
@@ -59,6 +78,8 @@ object Covenant {
         val t = stripCommentMarkers(line)
         if (t.startsWith("Covenant:"))
           acc.copy(covenant = Some(t.substring("Covenant:".length).trim))
+        else if (t.startsWith("Covenant-type:"))
+          acc.copy(covenantType = Some(t.substring("Covenant-type:".length).trim))
         else if (t.startsWith("Covenant-baseline-spec-pass:"))
           acc.copy(baseSpecPass = t.substring("Covenant-baseline-spec-pass:".length).trim.toIntOption)
         else if (t.startsWith("Covenant-baseline-loc:"))
@@ -82,12 +103,13 @@ object Covenant {
       .map { acc =>
         acc.covenant.map { c =>
           Header(
-            covenant         = c,
+            covenant = c,
             baselineSpecPass = acc.baseSpecPass.getOrElse(0),
-            baselineLoc      = acc.baseLoc.getOrElse(0),
-            baselineMethods  = acc.baseMethods.getOrElse(Set.empty),
-            sourceReference  = acc.sourceRef.getOrElse(""),
-            verified         = acc.verified.getOrElse("")
+            baselineLoc = acc.baseLoc.getOrElse(0),
+            baselineMethods = acc.baseMethods.getOrElse(Set.empty),
+            sourceReference = acc.sourceRef.getOrElse(""),
+            verified = acc.verified.getOrElse(""),
+            covenantType = acc.covenantType
           )
         }
       }
@@ -95,16 +117,56 @@ object Covenant {
 
   def parse(file: File): IO[Option[Header]] = parse(Path.fromNioPath(file.toPath))
 
-  /** Verify a covenanted file. Returns Right(()) on pass, Left(reason)
-    * on fail. Fails on:
-    *   - No covenant header present.
-    *   - Current method set is missing names from `baseline-methods`.
-    *   - `Shortcuts.scanFile` returns any hit.
-    *
-    * Only `full-port` covenants are enforced; other covenant tags
-    * (e.g. `partial-port`) are accepted as-is.
-    */
-  def verify(path: Path): IO[Either[String, Unit]] = {
+  /**
+   * Read just the `Covenant-type` field from a file's header. Unlike
+   * [[parse]], this does NOT require a `Covenant:` line — an original
+   * invention is allowed to carry `Covenant-type: original-invention`
+   * as its only covenant field.
+   */
+  def covenantType(path: Path): IO[Option[String]] =
+    FileOps
+      .streamLines(path)
+      .take(80)
+      .compile
+      .fold(Option.empty[String]) { case (acc, (_, line)) =>
+        val t = stripCommentMarkers(line)
+        if (t.startsWith("Covenant-type:")) Some(t.substring("Covenant-type:".length).trim)
+        else acc
+      }
+
+  def covenantType(file: File): IO[Option[String]] =
+    covenantType(Path.fromNioPath(file.toPath))
+
+  /**
+   * True when a file is marked as our original invention and must be
+   * exempt from all port-faithfulness enforcement.
+   */
+  def isOriginalInvention(path: Path): IO[Boolean] =
+    covenantType(path).map(_.contains(OriginalInvention))
+
+  def isOriginalInvention(file: File): IO[Boolean] =
+    isOriginalInvention(Path.fromNioPath(file.toPath))
+
+  /**
+   * Verify a covenanted file. Returns Right(()) on pass, Left(reason)
+   * on fail. Fails on:
+   *   - No covenant header present.
+   *   - Current method set is missing names from `baseline-methods`.
+   *   - `Shortcuts.scanFile` returns any hit.
+   *
+   * Only `full-port` covenants are enforced; other covenant tags
+   * (e.g. `partial-port`) are accepted as-is.
+   */
+  def verify(path: Path): IO[Either[String, Unit]] =
+    isOriginalInvention(path).flatMap {
+      case true =>
+        // Our original invention — not a port. Nothing to verify against.
+        IO.pure(Right(()))
+      case false =>
+        verifyPort(path)
+    }
+
+  private def verifyPort(path: Path): IO[Either[String, Unit]] =
     parse(path).flatMap {
       case None =>
         IO.pure(Left("no covenant header"))
@@ -113,30 +175,31 @@ object Covenant {
       case Some(header) =>
         for {
           currentMethods <- Methods.extractScalaNames(path)
-          missing         = header.baselineMethods -- currentMethods.toSet
-          shortcutHits   <- Shortcuts.scanFile(path)
-        } yield {
+          missing = header.baselineMethods -- currentMethods.toSet
+          shortcutHits <- Shortcuts.scanFile(path)
+        } yield
           if (missing.nonEmpty)
             Left(s"methods removed since baseline: ${missing.toList.sorted.take(5).mkString(", ")}")
           else if (shortcutHits.nonEmpty)
-            Left(s"shortcuts introduced: ${shortcutHits.size} hit(s), e.g. ${shortcutHits.head.pattern} at line ${shortcutHits.head.line}")
+            Left(
+              s"shortcuts introduced: ${shortcutHits.size} hit(s), e.g. ${shortcutHits.head.pattern} at line ${shortcutHits.head.line}"
+            )
           else
             Right(())
-        }
     }
-  }
 
   def verify(file: File): IO[Either[String, Unit]] = verify(Path.fromNioPath(file.toPath))
 
   // -- internals -------------------------------------------------------
 
-  private final case class ParseAcc(
-    covenant:     Option[String],
+  final private case class ParseAcc(
+    covenant: Option[String],
     baseSpecPass: Option[Int],
-    baseLoc:      Option[Int],
-    baseMethods:  Option[Set[String]],
-    sourceRef:    Option[String],
-    verified:     Option[String]
+    baseLoc: Option[Int],
+    baseMethods: Option[Set[String]],
+    sourceRef: Option[String],
+    verified: Option[String],
+    covenantType: Option[String]
   )
 
   // Strip leading `*`, opening block-comment, `//` and surrounding

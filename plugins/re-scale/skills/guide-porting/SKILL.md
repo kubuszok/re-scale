@@ -19,6 +19,23 @@ or "diminishing returns". If the original has it, the port must have it.
 The only valid reason to skip something is an **explicit user instruction**
 to skip it.
 
+## Original invention (not a port)
+
+Some files are OUR ORIGINAL INVENTION — written from scratch, not ported from
+any upstream Java/Dart/Ruby/JS source. The 100% rule does not apply to them
+because there is no original to match. Mark such a file by adding this field
+to its header block comment:
+
+```
+ * Covenant-type: original-invention
+```
+
+A file carrying this marker is exempt from ALL port-faithfulness enforcement —
+`re-scale enforce verify`, `shortcuts`, and `stale-stubs` all treat it as an
+unconditional PASS. It does NOT need a `Covenant:` line, baseline methods, a
+`source-reference`, or a `covenant-apply` stamp. Use it only for genuinely
+original code; never to silence enforcement on a real port.
+
 ## Agents
 
 Two specialized agents handle the porting workflow:

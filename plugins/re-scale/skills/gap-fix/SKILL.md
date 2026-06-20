@@ -27,6 +27,15 @@ Fix all enforcement failures in `$ARGUMENTS`, then stamp a covenant.
 10. Stamp: `re-scale enforce covenant-apply --file <path> --source <ref>`
 11. Commit with: `<module>: gap-fix <file> — N shortcuts resolved, M methods ported`
 
+## Original invention exemption
+
+If the file is OUR ORIGINAL INVENTION (not a port of any upstream source), it
+has no gaps to fix and no covenant to stamp. Add `Covenant-type: original-invention`
+to its header block comment instead — that marker makes `enforce verify`,
+`shortcuts`, and `stale-stubs` all PASS the file unconditionally, with no
+baseline methods or `covenant-apply` step required. Only do this for genuinely
+original code, never to silence enforcement on a real port.
+
 ## Important
 
 **Do NOT access .rescale/data/ files directly.** Use `re-scale db` commands.

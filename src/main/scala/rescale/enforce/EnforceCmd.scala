@@ -46,32 +46,47 @@ object EnforceCmd {
   def shortcuts(args: Cli.Args): IO[ExitCode] = {
     val mr = args.hasFlag("machine-readable")
     for {
-      roots          <- resolveSourceRoots(args)
-      covenantedOnly  = args.hasFlag("covenanted")
-      file            = args.flag("file").map(new File(_))
-      policyFile     <- Paths.projectRoot.map(r => new File(Paths.dataDir(r), "skip-policy.tsv"))
-      policy         <- SkipPolicy.read(policyFile)
-      hits           <- file match {
-                          case Some(f) => Shortcuts.scanFile(f)
-                          case None    => roots.flatTraverse(r => Shortcuts.scanDir(r))
-                        }
-      finalHits       = SkipPolicy.filter[Shortcuts.Hit](policy, "shortcuts", _.file, hits)
-      filtered       <- if (covenantedOnly) keepCovenanted(finalHits) else IO.pure(finalHits)
-      _              <- IO(if (mr) printShortcutsTsv(filtered) else printShortcutHits(filtered))
-    } yield {
+      roots <- resolveSourceRoots(args)
+      covenantedOnly = args.hasFlag("covenanted")
+      file = args.flag("file").map(new File(_))
+      policyFile <- Paths.projectRoot.map(r => new File(Paths.dataDir(r), "skip-policy.tsv"))
+      policy <- SkipPolicy.read(policyFile)
+      hits <- file match {
+        case Some(f) => Shortcuts.scanFile(f)
+        case None    => roots.flatTraverse(r => Shortcuts.scanDir(r))
+      }
+      policyHits = SkipPolicy.filter[Shortcuts.Hit](policy, "shortcuts", _.file, hits)
+      finalHits <- dropOriginalInventions[Shortcuts.Hit](policyHits, _.file)
+      filtered <- if (covenantedOnly) keepCovenanted(finalHits) else IO.pure(finalHits)
+      _ <- IO(if (mr) printShortcutsTsv(filtered) else printShortcutHits(filtered))
+    } yield
       if (covenantedOnly && filtered.nonEmpty) ExitCode.Error
       else ExitCode.Success
-    }
   }
 
-  private def keepCovenanted(hits: List[Shortcuts.Hit]): IO[List[Shortcuts.Hit]] = {
+  /**
+   * Exclude any hits whose file is marked as our original invention
+   * (`Covenant-type: original-invention`). Such files are not ports and
+   * are exempt from all port-faithfulness enforcement. The covenant
+   * header is read at most once per distinct file.
+   */
+  private def dropOriginalInventions[A](hits: List[A], fileOf: A => String): IO[List[A]] =
+    if (hits.isEmpty) IO.pure(hits)
+    else
+      hits
+        .map(fileOf)
+        .distinct
+        .traverse(f => Covenant.isOriginalInvention(new File(f)).map(f -> _))
+        .map(_.toMap)
+        .map(exempt => hits.filterNot(h => exempt.getOrElse(fileOf(h), false)))
+
+  private def keepCovenanted(hits: List[Shortcuts.Hit]): IO[List[Shortcuts.Hit]] =
     hits.traverseFilter { h =>
       Covenant.parse(new File(h.file)).map {
         case Some(header) if header.covenant == "full-port" => Some(h)
         case _                                              => None
       }
     }
-  }
 
   private def printShortcutHits(hits: List[Shortcuts.Hit]): Unit = {
     if (hits.isEmpty) {
@@ -100,13 +115,15 @@ object EnforceCmd {
   def staleStubs(args: Cli.Args): IO[ExitCode] = {
     val mr = args.hasFlag("machine-readable")
     for {
-      roots      <- resolveSourceRoots(args)
-      _          <- if (mr) IO.unit else IO(Term.info(s"Scanning ${roots.size} source root(s) for stale stubs (two-pass streaming)..."))
+      roots <- resolveSourceRoots(args)
+      _ <- if (mr) IO.unit
+      else IO(Term.info(s"Scanning ${roots.size} source root(s) for stale stubs (two-pass streaming)..."))
       policyFile <- Paths.projectRoot.map(r => new File(Paths.dataDir(r), "skip-policy.tsv"))
-      policy     <- SkipPolicy.read(policyFile)
-      hits       <- StaleStubs.scanList(roots)
-      filtered    = SkipPolicy.filter[StaleStubs.StaleHit](policy, "stale-stubs", _.file, hits)
-      _          <- IO(if (mr) printStaleHitsTsv(filtered) else printStaleHits(filtered))
+      policy <- SkipPolicy.read(policyFile)
+      hits <- StaleStubs.scanList(roots)
+      policyHits = SkipPolicy.filter[StaleStubs.StaleHit](policy, "stale-stubs", _.file, hits)
+      filtered <- dropOriginalInventions[StaleStubs.StaleHit](policyHits, _.file)
+      _ <- IO(if (mr) printStaleHitsTsv(filtered) else printStaleHits(filtered))
     } yield ExitCode.Success
   }
 
@@ -136,7 +153,7 @@ object EnforceCmd {
 
   def verify(args: Cli.Args): IO[ExitCode] = {
     val all = args.hasFlag("all")
-    val mr  = args.hasFlag("machine-readable")
+    val mr = args.hasFlag("machine-readable")
     args.flag("file") match {
       case Some(f) =>
         val file = new File(f)
@@ -150,33 +167,33 @@ object EnforceCmd {
         for {
           roots <- resolveSourceRoots(args)
           files <- roots.flatTraverse { r =>
-                     fs2.io.file
-                       .Files[IO]
-                       .walk(Path.fromNioPath(r.toPath))
-                       .filter(p => p.fileName.toString.endsWith(".scala"))
-                       .compile
-                       .toList
-                   }
+            fs2.io.file
+              .Files[IO]
+              .walk(Path.fromNioPath(r.toPath))
+              .filter(p => p.fileName.toString.endsWith(".scala"))
+              .compile
+              .toList
+          }
           results <- files.traverse { p =>
-                       Covenant.verify(p).map(p -> _)
-                     }
+            Covenant.verify(p).map(p -> _)
+          }
           failed = results.collect { case (p, Left(reason)) => (p, reason) }
-          ok     = results.count(_._2.isRight)
+          ok = results.count(_._2.isRight)
           _ <- IO {
-                 if (mr) {
-                   println("# file\tresult\treason")
-                   results.sortBy(_._1.toString).foreach {
-                     case (p, Right(())) => println(s"$p\tpass")
-                     case (p, Left(r))   => println(s"$p\tfail\t$r")
-                   }
-                 } else {
-                   println(s"Verified: $ok of ${results.size} files")
-                   if (failed.nonEmpty) {
-                     println(s"Failed: ${failed.size}")
-                     failed.foreach { case (p, reason) => println(s"  $p: $reason") }
-                   }
-                 }
-               }
+            if (mr) {
+              println("# file\tresult\treason")
+              results.sortBy(_._1.toString).foreach {
+                case (p, Right(())) => println(s"$p\tpass")
+                case (p, Left(r))   => println(s"$p\tfail\t$r")
+              }
+            } else {
+              println(s"Verified: $ok of ${results.size} files")
+              if (failed.nonEmpty) {
+                println(s"Failed: ${failed.size}")
+                failed.foreach { case (p, reason) => println(s"  $p: $reason") }
+              }
+            }
+          }
         } yield if (failed.nonEmpty) ExitCode.Error else ExitCode.Success
       case None =>
         IO(Term.err("Usage: re-scale enforce verify --file <path> | --all")).as(ExitCode.Error)
@@ -186,12 +203,12 @@ object EnforceCmd {
   // -- covenant-apply -----------------------------------------------
 
   def covenantApply(args: Cli.Args): IO[ExitCode] = {
-    val file   = args.flag("file").map(new File(_))
+    val file = args.flag("file").map(new File(_))
     val source = args.flag("source")
-    val spec   = args.flag("spec-pass").flatMap(_.toIntOption)
-    val cov    = args.flagOrDefault("covenant", "full-port")
+    val spec = args.flag("spec-pass").flatMap(_.toIntOption)
+    val cov = args.flagOrDefault("covenant", "full-port")
     val dryRun = args.hasFlag("dry-run")
-    val force  = args.hasFlag("force")
+    val force = args.hasFlag("force")
 
     (file, source) match {
       case (Some(f), Some(src)) =>
@@ -207,40 +224,40 @@ object EnforceCmd {
       case _ =>
         IO(Term.err(
           "Usage: re-scale enforce covenant-apply --file <path> --source <ref> " +
-          "[--spec-pass N] [--covenant full-port] [--dry-run] [--force]"
+            "[--spec-pass N] [--covenant full-port] [--dry-run] [--force]"
         )).as(ExitCode.Error)
     }
   }
 
   // -- skip-policy --------------------------------------------------
 
-  def skipPolicy(rest: List[String]): IO[ExitCode] = {
+  def skipPolicy(rest: List[String]): IO[ExitCode] =
     rest match {
       case Nil | "list" :: _ =>
         for {
           policyFile <- Paths.projectRoot.map(r => new File(Paths.dataDir(r), "skip-policy.tsv"))
-          entries    <- SkipPolicy.read(policyFile)
+          entries <- SkipPolicy.read(policyFile)
           _ <- IO {
-                 if (entries.isEmpty) println("(no skip-policy entries)")
-                 else
-                   entries.foreach { e =>
-                     println(f"${e.tool}%-12s ${e.path}%-50s ${e.reason}")
-                   }
-               }
+            if (entries.isEmpty) println("(no skip-policy entries)")
+            else
+              entries.foreach { e =>
+                println(f"${e.tool}%-12s ${e.path}%-50s ${e.reason}")
+              }
+          }
         } yield ExitCode.Success
       case "add" :: more =>
         val parsed = Cli.parse(more)
         val pathArg = parsed.flag("path").orElse(parsed.positionalAt(0))
         val toolArg = parsed.flag("tool").orElse(parsed.positionalAt(1))
-        val reason  = parsed.flag("reason").getOrElse("(no reason)")
+        val reason = parsed.flag("reason").getOrElse("(no reason)")
         val addedBy = parsed.flag("added-by").getOrElse(sys.env.getOrElse("USER", "unknown"))
         (pathArg, toolArg) match {
           case (Some(p), Some(t)) =>
             val entry = SkipPolicy.Entry(p, t, reason, LocalDate.now().toString, addedBy)
             for {
               policyFile <- Paths.projectRoot.map(r => new File(Paths.dataDir(r), "skip-policy.tsv"))
-              _          <- SkipPolicy.add(policyFile, entry)
-              _          <- IO(Term.ok(s"Added skip-policy entry: $p ($t)"))
+              _ <- SkipPolicy.add(policyFile, entry)
+              _ <- IO(Term.ok(s"Added skip-policy entry: $p ($t)"))
             } yield ExitCode.Success
           case _ =>
             IO(Term.err("Usage: re-scale enforce skip-policy add <path> <tool> [--reason ...]")).as(ExitCode.Error)
@@ -248,14 +265,13 @@ object EnforceCmd {
       case other :: _ =>
         IO(Term.err(s"Unknown skip-policy subcommand: $other")).as(ExitCode.Error)
     }
-  }
 
   // -- compare ------------------------------------------------------
 
   def compareCmd(args: Cli.Args): IO[ExitCode] = {
-    val portFile   = args.flag("port").map(s => Path(s))
+    val portFile = args.flag("port").map(s => Path(s))
     val sourceFile = args.flag("source").map(s => Path(s))
-    val strict     = args.hasFlag("strict")
+    val strict = args.hasFlag("strict")
     (portFile, sourceFile) match {
       case (Some(p), Some(s)) =>
         val gapIO = if (strict) Methods.strictCompare(p, s) else Methods.compare(p, s)
@@ -285,7 +301,9 @@ object EnforceCmd {
           )
         }
       case _ =>
-        IO(Term.err("Usage: re-scale enforce compare --port <scala> --source <java|dart> [--strict]")).as(ExitCode.Error)
+        IO(Term.err("Usage: re-scale enforce compare --port <scala> --source <java|dart> [--strict]")).as(
+          ExitCode.Error
+        )
     }
   }
 
