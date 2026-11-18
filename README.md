@@ -350,17 +350,24 @@ the rewrite. The current re-scale binary peaks at ~150 MiB.
 
 ## Install
 
-### Option 1: Plugin install (recommended)
+### Option 1: Agent plugins (recommended)
 
-re-scale is a **Claude Code plugin marketplace**. One command installs
-the CLI binary, all 11 skills, and the PreToolUse hook:
+The agent plugins live in
+[kubuszok/agent-skills](https://github.com/kubuszok/agent-skills),
+marketplace `kubuszok`. There are two:
+
+- `re-scale-hooks`: only the PreToolUse guard, for any repository that
+  wants the tool-usage guard and ports nothing;
+- `re-scale-porting`: the conversion guides, scans, tracking skills and
+  the implementer/auditor agents. Use it together with `re-scale-hooks`.
 
 ```
-/plugin marketplace add https://github.com/kubuszok/re-scale
-/plugin install re-scale@kubuszok-tools
+/plugin marketplace add kubuszok/agent-skills
+/plugin install re-scale-hooks@kubuszok
+/plugin install re-scale-porting@kubuszok
 ```
 
-On each session start, the plugin's `SessionStart` hook:
+On each session start, each plugin's `SessionStart` hook:
 
 1. uses a `re-scale` already on `PATH` if it is the version the plugin
    pins;
@@ -379,8 +386,11 @@ The `PreToolUse` hook delegates to `re-scale hook` — no manual
 
 To update after a re-scale release:
 ```
-/plugin marketplace update kubuszok-tools
+/plugin marketplace update kubuszok
 ```
+
+The README of agent-skills covers Codex, Copilot CLI, Cursor, OpenCode
+and Gemini CLI.
 
 ### Option 2: Coursier
 
@@ -433,28 +443,9 @@ export PATH="$PWD/bin:$PATH"   # add to shell rc
 The `bin/re-scale` wrapper builds the binary on first run if it is
 missing. Building needs JDK 17+, sbt and Clang/LLVM.
 
-#### Included skills
-
-| Skill | Auto-loads when... |
-|-------|---------------------|
-| `guide-conversion` | converting a file from Java/Dart/Ruby to Scala |
-| `guide-code-style` | formatting or style questions arise |
-| `guide-nullable` | null-safety / `Nullable[A]` patterns needed |
-| `guide-control-flow` | replacing return/break/continue |
-| `guide-verification` | post-conversion verification |
-| `audit-file` | auditing a file against its source |
-| `verify-file` | verifying a ported file |
-| `find-issues` | scanning for code quality issues |
-| `check-progress` | checking migration/audit progress |
-| `audit-status` | audit status per-package or overall |
-| `gap-fix` | fixing enforcement failures in a file |
-
-Skills reference `re-scale` commands, so the binary must be installed
-first (see above).
-
 **Project-specific skills** (like type-mappings for a specific library
-or build architecture details) should stay in the project's own
-`.claude/skills/` directory — they don't belong in the marketplace.
+or build architecture details) stay in the project's own
+`.claude/skills/` directory, not in the agent plugins.
 
 ## Configure
 
