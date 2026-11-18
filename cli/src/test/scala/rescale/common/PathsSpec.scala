@@ -23,7 +23,7 @@ final class PathsSpec extends FunSuite {
   }
 
   test("discoverFrom finds build.sbt at self") {
-    val root  = tempProject()
+    val root = tempProject()
     val build = new File(root, "build.sbt")
     build.createNewFile()
     assertEquals(Paths.discoverFrom(root).map(_.getAbsolutePath), Some(root.getAbsolutePath))
@@ -32,7 +32,7 @@ final class PathsSpec extends FunSuite {
   test("discoverFrom finds marker at ancestor") {
     val root = tempProject()
     new File(root, "build.sbt").createNewFile()
-    val sub  = new File(root, "sub/nested/deep")
+    val sub = new File(root, "sub/nested/deep")
     sub.mkdirs()
     assertEquals(Paths.discoverFrom(sub).map(_.getAbsolutePath), Some(root.getAbsolutePath))
   }

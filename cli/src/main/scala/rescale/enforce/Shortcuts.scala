@@ -36,78 +36,78 @@ object Shortcuts {
 
   final case class Hit(file: String, line: Int, pattern: String, text: String)
 
-  private sealed trait Rule {
-    def name:  String
+  sealed private trait Rule {
+    def name: String
     def regex: Regex
   }
-  private final case class Always(name: String, regex: Regex)      extends Rule
-  private final case class CommentOnly(name: String, regex: Regex) extends Rule
+  final private case class Always(name: String, regex: Regex) extends Rule
+  final private case class CommentOnly(name: String, regex: Regex) extends Rule
 
-  /** Distinctive markers that are rare as legitimate identifiers and
-    * therefore safe to match anywhere on a line.
-    */
+  /**
+   * Distinctive markers that are rare as legitimate identifiers and
+   * therefore safe to match anywhere on a line.
+   */
   private val alwaysRules: List[Always] = List(
-    Always("todo",            """\bTODO\b""".r),
-    Always("fixme",           """\bFIXME\b""".r),
-    Always("hack",            """\bHACK\b""".r),
-    Always("xxx",             """\bXXX\b""".r),
-    Always("unsupported-op",  """UnsupportedOperationException""".r),
+    Always("todo", """\bTODO\b""".r),
+    Always("fixme", """\bFIXME\b""".r),
+    Always("hack", """\bHACK\b""".r),
+    Always("xxx", """\bXXX\b""".r),
+    Always("unsupported-op", """UnsupportedOperationException""".r),
     Always("not-implemented", """throw\s+new\s+NotImplementedError""".r),
-    Always("scala-unimpl",    """\?\?\?""".r),
+    Always("scala-unimpl", """\?\?\?""".r),
     Always("catch-throwable", """catch\s*\{[^}]*case\s+_?\s*:?\s*Throwable\b""".r),
-    Always("cssStub-fn",      """\bcssStub\s*\(""".r),
+    Always("cssStub-fn", """\bcssStub\s*\(""".r),
     // -- Phase 1 anti-cheat additions ---------------------------------
-    Always("null-cast",                """null\.asInstanceOf\[""".r),
-    Always("nullable-null-fallback",   """Nullable\.empty\.getOrElse\(null\)""".r),
-    Always("get-or-else-null",         """\.getOrElse\(null\)""".r),
-    Always("this-null-arg",            """\bthis\(\s*null\s*[,)]""".r),
-    Always("flag-break-var",
-      """var\s+(done|continue|finished|stop|canBreak|shouldBreak|shouldContinue)\s*[:=]""".r),
+    Always("null-cast", """null\.asInstanceOf\[""".r),
+    Always("nullable-null-fallback", """Nullable\.empty\.getOrElse\(null\)""".r),
+    Always("get-or-else-null", """\.getOrElse\(null\)""".r),
+    Always("this-null-arg", """\bthis\(\s*null\s*[,)]""".r),
+    Always("flag-break-var", """var\s+(done|continue|finished|stop|canBreak|shouldBreak|shouldContinue)\s*[:=]""".r),
     Always("scalastyle-ignore-return", """return\s+.*//\s*scalastyle:ignore""".r),
-    Always("throw-not-yet",
-      """throw\s+new\s+(Runtime|IllegalState)Exception\(\s*"[^"]*not\s+yet""".r),
-    Always("nowarn-stub",
-      """@nowarn\("msg=unused[^"]*"\)\s*//.*\bstub\b""".r)
+    Always("throw-not-yet", """throw\s+new\s+(Runtime|IllegalState)Exception\(\s*"[^"]*not\s+yet""".r),
+    Always("nowarn-stub", """@nowarn\("msg=unused[^"]*"\)\s*//.*\bstub\b""".r)
   )
 
-  /** Softer markers that appear in legitimate code as variable names
-    * (`PlaceholderSelector`, `val simplified = …`). These count only
-    * inside a comment line.
-    */
+  /**
+   * Softer markers that appear in legitimate code as variable names
+   * (`PlaceholderSelector`, `val simplified = …`). These count only
+   * inside a comment line.
+   */
   private val commentRules: List[CommentOnly] = List(
-    CommentOnly("stub-comment",          """(?i)\bstub\b""".r),
-    CommentOnly("simplified-comment",    """(?i)\bsimplified\b""".r),
-    CommentOnly("minimal-comment",       """(?i)\bminimal(?:\s+viable)?\b""".r),
-    CommentOnly("placeholder-comment",   """(?i)\bplaceholder\b""".r),
-    CommentOnly("tbd-comment",           """(?i)\bTBD\b""".r),
-    CommentOnly("pending-comment",       """(?i)\bpending\b""".r),
-    CommentOnly("shim-comment",          """(?i)\bshim\b""".r),
-    CommentOnly("best-effort-comment",   """(?i)\bbest[-\s]effort\b""".r),
+    CommentOnly("stub-comment", """(?i)\bstub\b""".r),
+    CommentOnly("simplified-comment", """(?i)\bsimplified\b""".r),
+    CommentOnly("minimal-comment", """(?i)\bminimal(?:\s+viable)?\b""".r),
+    CommentOnly("placeholder-comment", """(?i)\bplaceholder\b""".r),
+    CommentOnly("tbd-comment", """(?i)\bTBD\b""".r),
+    CommentOnly("pending-comment", """(?i)\bpending\b""".r),
+    CommentOnly("shim-comment", """(?i)\bshim\b""".r),
+    CommentOnly("best-effort-comment", """(?i)\bbest[-\s]effort\b""".r),
     CommentOnly("approximation-comment", """(?i)\bapproximation\b""".r),
-    CommentOnly("deferred-comment",      """(?i)\bdeferred\b""".r),
-    CommentOnly("phase-n-comment",       """(?i)Phase\s*\d+""".r),
-    CommentOnly("not-yet-comment",       """(?i)\bnot\s+yet\b""".r),
+    CommentOnly("deferred-comment", """(?i)\bdeferred\b""".r),
+    CommentOnly("phase-n-comment", """(?i)Phase\s*\d+""".r),
+    CommentOnly("not-yet-comment", """(?i)\bnot\s+yet\b""".r),
     // -- Phase 1 anti-cheat additions ---------------------------------
-    CommentOnly("would-be-used",   """(?i)would\s+(be\s+)?used\s+here""".r),
-    CommentOnly("handled-below",   """(?i)handled\s+below""".r),
+    CommentOnly("would-be-used", """(?i)would\s+(be\s+)?used\s+here""".r),
+    CommentOnly("handled-below", """(?i)handled\s+below""".r),
     CommentOnly("for-now-comment", """(?i)\bfor\s+now\b""".r),
-    CommentOnly("break-comment",   """^\s*//\s*break\b""".r),
-    CommentOnly("return-comment",  """^\s*//\s*return\b""".r),
-    CommentOnly("would-do-comment",  """(?i)would\s+(do|implement|handle)\b""".r),
-    CommentOnly("aspirational-com",  """(?i)\baspirational\b""".r)
+    CommentOnly("break-comment", """^\s*//\s*break\b""".r),
+    CommentOnly("return-comment", """^\s*//\s*return\b""".r),
+    CommentOnly("would-do-comment", """(?i)would\s+(do|implement|handle)\b""".r),
+    CommentOnly("aspirational-com", """(?i)\baspirational\b""".r)
   )
 
-  /** Per-file streaming state. Tracks Apache header skip + nested
-    * block-comment depth so multi-line `/* … */` regions still match
-    * comment-only rules.
-    */
-  private final case class ScanState(
-    inHeader:       Boolean,
+  /**
+   * Per-file streaming state. Tracks Apache header skip + nested
+   * block-comment depth so multi-line `/* … */` regions still match
+   * comment-only rules.
+   */
+  final private case class ScanState(
+    inHeader: Boolean,
     inBlockComment: Boolean,
-    hits:           List[Hit]
+    hits: List[Hit]
   )
 
-  private val Open  = "/" + "*"
+  private val Open = "/" + "*"
   private val Close = "*" + "/"
 
   /** Scan a single file via streaming. Bounded memory per file. */
@@ -126,7 +126,7 @@ object Shortcuts {
 
   private def stepLine(file: String, state: ScanState, lineNum: Int, line: String): ScanState = {
     val trimmed = line.trim
-    var s       = state
+    var s = state
 
     // Skip the Apache header — first lines until we exit the leading block.
     if (s.inHeader) {
@@ -143,7 +143,7 @@ object Shortcuts {
 
     // Update block-comment state for subsequent lines.
     if (trimmed.contains(Open) && !trimmed.contains(Close)) s = s.copy(inBlockComment = true)
-    else if (s.inBlockComment && trimmed.contains(Close))   s = s.copy(inBlockComment = false)
+    else if (s.inBlockComment && trimmed.contains(Close)) s = s.copy(inBlockComment = false)
 
     var newHits: List[Hit] = s.hits
 
@@ -178,16 +178,16 @@ object Shortcuts {
     false
   }
 
-  /** Scan every `.scala` file under a directory tree. Streaming both
-    * the directory walk (lazy via FS2 Files.walk) and per-file lines.
-    */
-  def scanDir(dir: Path): IO[List[Hit]] = {
+  /**
+   * Scan every `.scala` file under a directory tree. Streaming both
+   * the directory walk (lazy via FS2 Files.walk) and per-file lines.
+   */
+  def scanDir(dir: Path): IO[List[Hit]] =
     FileOps
       .streamFiles(dir, ".scala")
       .evalMap(p => scanFile(p))
       .compile
       .fold(List.empty[Hit])(_ ++ _)
-  }
 
   def scanDir(dir: File): IO[List[Hit]] = scanDir(Path.fromNioPath(dir.toPath))
 }

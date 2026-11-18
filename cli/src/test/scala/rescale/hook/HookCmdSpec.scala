@@ -63,26 +63,26 @@ final class HookCmdSpec extends FunSuite {
 
   test("process: ls denied (suboptimal-tool rule)") {
     val json = """{"tool_name":"Bash","tool_input":{"command":"ls /tmp"}}"""
-    val r    = HookCmd.process(json, DefaultRules.ruleSet)
+    val r = HookCmd.process(json, DefaultRules.ruleSet)
     assert(r.contains("\"permissionDecision\":\"deny\""), s"got: $r")
   }
 
   test("process: re-scale call → allow") {
     val json = """{"tool_name":"Bash","tool_input":{"command":"re-scale db audit list"}}"""
-    val r    = HookCmd.process(json, DefaultRules.ruleSet)
+    val r = HookCmd.process(json, DefaultRules.ruleSet)
     assert(r.contains("\"permissionDecision\":\"allow\""), s"got: $r")
   }
 
   test("process: rm -rf → deny JSON") {
     val json = """{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}"""
-    val r    = HookCmd.process(json, DefaultRules.ruleSet)
+    val r = HookCmd.process(json, DefaultRules.ruleSet)
     assert(r.contains("\"permissionDecision\":\"deny\""), s"got: $r")
     assert(r.contains("\"permissionDecisionReason\""), s"got: $r")
   }
 
   test("process: gh pr create → ask JSON") {
     val json = """{"tool_name":"Bash","tool_input":{"command":"gh pr create --title foo"}}"""
-    val r    = HookCmd.process(json, DefaultRules.ruleSet)
+    val r = HookCmd.process(json, DefaultRules.ruleSet)
     assert(r.contains("\"permissionDecision\":\"ask\""), s"got: $r")
   }
 
@@ -127,7 +127,8 @@ final class HookCmdSpec extends FunSuite {
   }
 
   test("process: Edit on .rescale/data/ path → deny") {
-    val json = """{"tool_name":"Edit","tool_input":{"file_path":"/foo/.rescale/data/issues.tsv","old_string":"a","new_string":"b"}}"""
+    val json =
+      """{"tool_name":"Edit","tool_input":{"file_path":"/foo/.rescale/data/issues.tsv","old_string":"a","new_string":"b"}}"""
     val r = HookCmd.process(json, DefaultRules.ruleSet)
     assert(r.contains("\"permissionDecision\":\"deny\""), s"expected deny, got: $r")
   }
@@ -141,8 +142,10 @@ final class HookCmdSpec extends FunSuite {
     )
     cases.foreach { json =>
       val r = HookCmd.process(json, DefaultRules.ruleSet)
-      assert(r.startsWith("""{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"""),
-        s"unwrapped output for $json: $r")
+      assert(
+        r.startsWith("""{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"""),
+        s"unwrapped output for $json: $r"
+      )
     }
   }
 

@@ -36,12 +36,12 @@ object GitCmd {
       case "blame" :: rest       => gitPass("blame" :: rest)
       case "tags" :: _           => gitPass(List("tag", "-l"))
       // Write
-      case "stage" :: rest       => gitPass("add" :: rest)
-      case "stage-all" :: _      => gitPass(List("add", "-A"))
-      case "commit" :: rest      => gitCommit(rest)
-      case "push" :: rest        => gitPass("push" :: rest)
+      case "stage" :: rest  => gitPass("add" :: rest)
+      case "stage-all" :: _ => gitPass(List("add", "-A"))
+      case "commit" :: rest => gitCommit(rest)
+      case "push" :: rest   => gitPass("push" :: rest)
       // GitHub
-      case "gh" :: rest          => gh(rest)
+      case "gh" :: rest => gh(rest)
       case other :: _ =>
         IO(Term.err(s"Unknown git command: $other")).as(ExitCode.Error)
     }
@@ -61,7 +61,7 @@ object GitCmd {
 
   private def gitLogFull(rest: List[String]): IO[ExitCode] = {
     val args = Cli.parse(rest)
-    val n    = args.flagOrDefault("n", "10")
+    val n = args.flagOrDefault("n", "10")
     gitPass(List("log", "--stat", "-n", n))
   }
 
@@ -78,7 +78,7 @@ object GitCmd {
     }
 
   private def gitCommit(rest: List[String]): IO[ExitCode] = {
-    val args    = Cli.parse(rest)
+    val args = Cli.parse(rest)
     val message = args.flag("m").orElse(args.flag("message"))
     message match {
       case Some(msg) => gitPass(List("commit", "-m", msg))

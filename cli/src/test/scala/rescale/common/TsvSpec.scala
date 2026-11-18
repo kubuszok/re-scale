@@ -91,7 +91,7 @@ final class TsvSpec extends CatsEffectSuite {
         |""".stripMargin
     )
     Tsv.read(f).attempt.map {
-      case Left(t) => assert(t.getMessage.contains("data row before header"))
+      case Left(t)  => assert(t.getMessage.contains("data row before header"))
       case Right(_) => fail("expected read to fail")
     }
   }
@@ -112,8 +112,8 @@ final class TsvSpec extends CatsEffectSuite {
   test("write + read round-trips") {
     val f = new File(tempDir(), "rt.tsv")
     val table = Table(
-      headers  = List("id", "name"),
-      rows     = List(Map("id" -> "1", "name" -> "alice"), Map("id" -> "2", "name" -> "bob")),
+      headers = List("id", "name"),
+      rows = List(Map("id" -> "1", "name" -> "alice"), Map("id" -> "2", "name" -> "bob")),
       comments = List("# fixture")
     )
     (Tsv.write(f, table) *> Tsv.read(f)).map { roundTripped =>
@@ -127,7 +127,7 @@ final class TsvSpec extends CatsEffectSuite {
     val f = new File(tempDir(), "quoted.tsv")
     val table = Table(
       headers = List("id", "notes"),
-      rows    = List(Map("id" -> "1", "notes" -> "has\ttab"))
+      rows = List(Map("id" -> "1", "notes" -> "has\ttab"))
     )
     (Tsv.write(f, table) *> Tsv.read(f)).map { rt =>
       assertEquals(rt.rows.head.get("notes"), Some("has\ttab"))
@@ -141,7 +141,7 @@ final class TsvSpec extends CatsEffectSuite {
     val updated = Tsv.modify(f) { t =>
       // Fresh table has empty headers/rows — install a schema on first write.
       val hs = List("id", "name")
-      val r  = Map("id" -> "1", "name" -> "alice")
+      val r = Map("id" -> "1", "name" -> "alice")
       Table(hs, List(r))
     }
     updated.flatMap { t =>

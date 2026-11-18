@@ -39,13 +39,12 @@ object BuildCmd {
 
   // -- compile -------------------------------------------------------
 
-  def compile(args: Cli.Args): IO[ExitCode] = {
+  def compile(args: Cli.Args): IO[ExitCode] =
     for {
-      root    <- Paths.projectRoot
-      targets  = resolveTargets(root, args)
-      result  <- runSbtCommands(root, targets.map(t => s"$t/compile"), args.hasFlag("errors-only"))
+      root <- Paths.projectRoot
+      targets = resolveTargets(root, args)
+      result <- runSbtCommands(root, targets.map(t => s"$t/compile"), args.hasFlag("errors-only"))
     } yield result
-  }
 
   def compileFmt(args: Cli.Args): IO[ExitCode] =
     fmt().flatMap {
@@ -56,37 +55,36 @@ object BuildCmd {
   def fmt(): IO[ExitCode] =
     for {
       root <- Paths.projectRoot
-      _    <- IO(Term.info("Formatting..."))
+      _ <- IO(Term.info("Formatting..."))
       exit <- Proc.exec("sbt", List("--client", "scalafmtAll"), cwd = Some(root))
       result <-
         if (exit == 0) IO(Term.ok("Format complete")).as(ExitCode.Success)
         else IO(Term.err("Format failed")).as(ExitCode(exit))
     } yield result
 
-  def publishLocal(args: Cli.Args): IO[ExitCode] = {
-    for {
-      root    <- Paths.projectRoot
-      targets  = resolveTargets(root, args)
-      result  <- runSbtCommands(root, targets.map(t => s"$t/publishLocal"), errorsOnly = false)
-    } yield result
-  }
-
-  def killSbt(): IO[ExitCode] = {
+  def publishLocal(args: Cli.Args): IO[ExitCode] =
     for {
       root <- Paths.projectRoot
-      _    <- IO(Term.info("Killing sbt server..."))
+      targets = resolveTargets(root, args)
+      result <- runSbtCommands(root, targets.map(t => s"$t/publishLocal"), errorsOnly = false)
+    } yield result
+
+  def killSbt(): IO[ExitCode] =
+    for {
+      root <- Paths.projectRoot
+      _ <- IO(Term.info("Killing sbt server..."))
       exit <- Proc.exec("sbt", List("--client", "shutdown"), cwd = Some(root))
-      _    <- if (exit == 0) IO(Term.ok("sbt server stopped"))
-              else IO(Term.warn("sbt server may not have been running"))
+      _ <- if (exit == 0) IO(Term.ok("sbt server stopped"))
+      else IO(Term.warn("sbt server may not have been running"))
     } yield ExitCode.Success
-  }
 
   // -- helpers ------------------------------------------------------
 
-  /** Run a sequence of sbt commands; abort on first failure.
-    * `errorsOnly` filters output to lines containing "[error]" only.
-    */
-  private def runSbtCommands(root: File, cmds: List[String], errorsOnly: Boolean): IO[ExitCode] = {
+  /**
+   * Run a sequence of sbt commands; abort on first failure.
+   * `errorsOnly` filters output to lines containing "[error]" only.
+   */
+  private def runSbtCommands(root: File, cmds: List[String], errorsOnly: Boolean): IO[ExitCode] =
     cmds.foldLeftM(ExitCode.Success) { (acc, cmd) =>
       acc match {
         case ExitCode.Success =>
@@ -95,9 +93,8 @@ object BuildCmd {
           IO.pure(fail)
       }
     }
-  }
 
-  private def runOne(root: File, cmd: String, errorsOnly: Boolean): IO[ExitCode] = {
+  private def runOne(root: File, cmd: String, errorsOnly: Boolean): IO[ExitCode] =
     if (!errorsOnly) {
       Proc.exec("sbt", List("--client", cmd), cwd = Some(root)).map(ExitCode.apply)
     } else {
@@ -114,24 +111,24 @@ object BuildCmd {
       Proc.runStreamed("sbt", List("--client", cmd), cwd = Some(root), sink = sink)
         .map(ExitCode(_))
     }
-  }
 
-  /** Build the list of sbt targets from the args. Modules come from
-    * `--module M` (single) or Paths.moduleNames (all). Platform
-    * suffixes are appended for `--js` / `--native`. `--all` is the
-    * same as no platform flag (uses the default base axis, typically
-    * the JVM).
-    */
+  /**
+   * Build the list of sbt targets from the args. Modules come from
+   * `--module M` (single) or Paths.moduleNames (all). Platform
+   * suffixes are appended for `--js` / `--native`. `--all` is the
+   * same as no platform flag (uses the default base axis, typically
+   * the JVM).
+   */
   private def resolveTargets(root: File, args: Cli.Args): List[String] = {
     val modules: List[String] =
       args.flag("module") match {
         case Some(m) => List(m)
         case None    => Paths.moduleNames(root)
       }
-    val jvm    = args.hasFlag("jvm")
-    val js     = args.hasFlag("js")
+    val jvm = args.hasFlag("jvm")
+    val js = args.hasFlag("js")
     val native = args.hasFlag("native")
-    val all    = args.hasFlag("all") || (!jvm && !js && !native)
+    val all = args.hasFlag("all") || (!jvm && !js && !native)
 
     if (all) modules
     else

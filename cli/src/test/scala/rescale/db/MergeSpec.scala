@@ -44,23 +44,23 @@ final class MergeSpec extends FunSuite {
       ("ISS-003", "c.scala", "third")
     ))
     val merged = Merge.merge(Kind.Issues, left, right, Strategy.Renumber)
-    val ids    = merged.rows.flatMap(_.get("id"))
+    val ids = merged.rows.flatMap(_.get("id"))
     assertEquals(ids.toSet, Set("ISS-001", "ISS-002", "ISS-003"))
   }
 
   test("issues merge: ID collision triggers renumbering") {
     val left = issuesTable(List(
       ("ISS-001", "shared.scala", "shared issue"),
-      ("ISS-002", "left.scala",   "left only"),
-      ("ISS-003", "left2.scala",  "left only 2")
+      ("ISS-002", "left.scala", "left only"),
+      ("ISS-003", "left2.scala", "left only 2")
     ))
     val right = issuesTable(List(
-      ("ISS-001", "shared.scala",  "different content but same id"),
-      ("ISS-002", "right.scala",   "right only"),
-      ("ISS-004", "right2.scala",  "right unique id")
+      ("ISS-001", "shared.scala", "different content but same id"),
+      ("ISS-002", "right.scala", "right only"),
+      ("ISS-004", "right2.scala", "right unique id")
     ))
     val merged = Merge.merge(Kind.Issues, left, right, Strategy.Renumber)
-    val ids    = merged.rows.flatMap(_.get("id"))
+    val ids = merged.rows.flatMap(_.get("id"))
 
     // Left's ISS-001..003 untouched. ISS-004 from right is new (no collision).
     // Right's ISS-001 and ISS-002 collide → renumbered to ISS-005, ISS-006.
@@ -92,7 +92,7 @@ final class MergeSpec extends FunSuite {
     )
 
     val merged = Merge.merge(Kind.Issues, elegant, flickering, Strategy.Renumber)
-    val ids    = merged.rows.flatMap(_.get("id")).toSet
+    val ids = merged.rows.flatMap(_.get("id")).toSet
 
     // ISS-001 is shared (same content) — collision is renumbered too.
     // Total: 25 (elegant) + 1 (preexisting from flickering, renumbered) + 11 (flickering renumbered) = 37
@@ -123,7 +123,7 @@ final class MergeSpec extends FunSuite {
     val right = issuesTable(List(
       ("ISS-002", "shared.scala", "right's ISS-002 — collides"),
       ("ISS-003", "right3.scala", "right's ISS-003 — collides"),
-      ("ISS-005", "ref.scala",    "duplicate of ISS-002 (depends on ISS-003)")
+      ("ISS-005", "ref.scala", "duplicate of ISS-002 (depends on ISS-003)")
     ))
     val merged = Merge.merge(Kind.Issues, left, right, Strategy.Renumber)
 
@@ -158,8 +158,7 @@ final class MergeSpec extends FunSuite {
     val renumbered = merged.rows.find(_.get("id").contains("ISS-003"))
       .getOrElse(fail("expected ISS-003 (renumbered ISS-002) to exist"))
     val desc = renumbered.getOrElse("description", "")
-    assert(desc.startsWith("[was ISS-002]"),
-      s"audit trail should preserve original ID literally: $desc")
+    assert(desc.startsWith("[was ISS-002]"), s"audit trail should preserve original ID literally: $desc")
   }
 
   test("issues merge: target ISS-X reference stays, source ISS-X reference rewrites") {
@@ -213,14 +212,15 @@ final class MergeSpec extends FunSuite {
     // Source ISS-077's description WAS rewritten — its original text
     // "ISS-056" referred to SOURCE's ISS-056, which got renumbered.
     val sourceDesc = sourceIss77.getOrElse("description", "")
-    assert(!sourceDesc.contains("ISS-056"),
-      s"source ISS-077 description should no longer mention stale ISS-056: $sourceDesc")
+    assert(
+      !sourceDesc.contains("ISS-056"),
+      s"source ISS-077 description should no longer mention stale ISS-056: $sourceDesc"
+    )
     // The renamed source ISS-056 is the FIRST collision, so it gets
     // max(target ∪ kept-source) + 1 = max(56, 66, 77) + 1 = 78. But
     // ISS-077 also exists in the kept-source set, so max-taken = 77,
     // first allocation = ISS-078.
-    assert(sourceDesc.contains("ISS-078"),
-      s"source ISS-077 description should reference renamed ISS-078: $sourceDesc")
+    assert(sourceDesc.contains("ISS-078"), s"source ISS-077 description should reference renamed ISS-078: $sourceDesc")
   }
 
   test("issues merge: chained renames don't double-rewrite") {
@@ -243,7 +243,7 @@ final class MergeSpec extends FunSuite {
     val right = issuesTable(List(
       ("ISS-002", "right2.scala", "right's ISS-002 collides"),
       ("ISS-005", "right5.scala", "right's ISS-005 collides"),
-      ("ISS-100", "ref.scala",    "references ISS-002 and ISS-005")
+      ("ISS-100", "ref.scala", "references ISS-002 and ISS-005")
     ))
     val merged = Merge.merge(Kind.Issues, left, right, Strategy.Renumber)
     val ref = merged.rows.find(_.get("id").contains("ISS-100"))
@@ -269,7 +269,7 @@ final class MergeSpec extends FunSuite {
       ("ISS-002", "b.scala", "right unique")
     ))
     val merged = Merge.merge(Kind.Issues, left, right, Strategy.PreferLeft)
-    val descs  = merged.rows.flatMap(_.get("description")).toSet
+    val descs = merged.rows.flatMap(_.get("description")).toSet
     assert(descs.contains("left wins"))
     assert(!descs.contains("right loses"), "prefer-left should drop colliding source row")
     assert(descs.contains("right unique"), "non-colliding source row should be kept")
@@ -289,8 +289,8 @@ final class MergeSpec extends FunSuite {
   // -- Audit: stricter status -----------------------------------------
 
   test("audit merge: stricter picks max(major > minor > pass)") {
-    val left  = auditTable(List(
-      ("a.scala", "pass",         "left note"),
+    val left = auditTable(List(
+      ("a.scala", "pass", "left note"),
       ("b.scala", "minor_issues", "left note b")
     ))
     val right = auditTable(List(
@@ -310,7 +310,7 @@ final class MergeSpec extends FunSuite {
   }
 
   test("audit merge: rows only in source are added") {
-    val left  = auditTable(List(("a.scala", "pass", "")))
+    val left = auditTable(List(("a.scala", "pass", "")))
     val right = auditTable(List(("b.scala", "pass", "right only")))
     val merged = Merge.merge(Kind.Audit, left, right, Strategy.Stricter)
     val paths = merged.rows.flatMap(_.get("file_path")).toSet
@@ -318,7 +318,7 @@ final class MergeSpec extends FunSuite {
   }
 
   test("audit merge: prefer-left ignores source notes") {
-    val left  = auditTable(List(("a.scala", "pass", "left wins")))
+    val left = auditTable(List(("a.scala", "pass", "left wins")))
     val right = auditTable(List(("a.scala", "minor_issues", "right loses")))
     val merged = Merge.merge(Kind.Audit, left, right, Strategy.PreferLeft)
     assertEquals(merged.rows.head.get("status"), Some("pass"))
@@ -330,11 +330,11 @@ final class MergeSpec extends FunSuite {
   test("migration merge: additive on disjoint source_path") {
     val left = Table(
       headers = List("source_path", "status"),
-      rows    = List(Map("source_path" -> "a.java", "status" -> "ported"))
+      rows = List(Map("source_path" -> "a.java", "status" -> "ported"))
     )
     val right = Table(
       headers = List("source_path", "status"),
-      rows    = List(Map("source_path" -> "b.java", "status" -> "skipped"))
+      rows = List(Map("source_path" -> "b.java", "status" -> "skipped"))
     )
     val merged = Merge.merge(Kind.Migration, left, right, Strategy.PreferLeft)
     assertEquals(merged.rows.size, 2)

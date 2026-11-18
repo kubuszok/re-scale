@@ -41,42 +41,42 @@ object RunnerCmd {
       cfgFile = Paths.runnersConfig(root)
       cfg <- loadConfig(cfgFile)
       _ <- IO {
-             if (cfg.runners.isEmpty) {
-               println(s"(no runners defined in $cfgFile)")
-             } else {
-               println(s"Runners defined in $cfgFile:\n")
-               cfg.runners.toList.sortBy(_._1).foreach { case (name, r) =>
-                 println(s"  $name")
-                 r.description.foreach(d => println(s"    $d"))
-                 if (r.modes.nonEmpty) {
-                   println(s"    modes: ${r.modes.keys.toList.sorted.mkString(", ")}")
-                 }
-                 println()
-               }
-             }
-           }
+        if (cfg.runners.isEmpty) {
+          println(s"(no runners defined in $cfgFile)")
+        } else {
+          println(s"Runners defined in $cfgFile:\n")
+          cfg.runners.toList.sortBy(_._1).foreach { case (name, r) =>
+            println(s"  $name")
+            r.description.foreach(d => println(s"    $d"))
+            if (r.modes.nonEmpty) {
+              println(s"    modes: ${r.modes.keys.toList.sorted.mkString(", ")}")
+            }
+            println()
+          }
+        }
+      }
     } yield ExitCode.Success
 
   // -- run one ------------------------------------------------------
 
   private def runOne(name: String, args: Cli.Args): IO[ExitCode] =
     for {
-      root    <- Paths.projectRoot
-      cfgFile  = Paths.runnersConfig(root)
-      cfg     <- loadConfig(cfgFile)
-      result  <- cfg.runners.get(name) match {
-                   case None =>
-                     IO(Term.err(s"Unknown runner: '$name' (defined: ${cfg.runners.keys.toList.sorted.mkString(", ")})"))
-                       .as(ExitCode.Error)
-                   case Some(runner) =>
-                     val mode    = args.flag("mode")
-                     val posArgs = args.positional
-                     for {
-                       _ <- IO(Term.info(s"Running '$name'${mode.map(m => s" [mode=$m]").getOrElse("")}..."))
-                       outcome <- Runner.run(runner, mode, posArgs, root)
-                       _ <- IO(printOutcome(name, outcome))
-                     } yield if (outcome.ok) ExitCode.Success else ExitCode.Error
-                 }
+      root <- Paths.projectRoot
+      cfgFile = Paths.runnersConfig(root)
+      cfg <- loadConfig(cfgFile)
+      result <- cfg.runners.get(name) match {
+        case None =>
+          IO(Term.err(s"Unknown runner: '$name' (defined: ${cfg.runners.keys.toList.sorted.mkString(", ")})"))
+            .as(ExitCode.Error)
+        case Some(runner) =>
+          val mode = args.flag("mode")
+          val posArgs = args.positional
+          for {
+            _ <- IO(Term.info(s"Running '$name'${mode.map(m => s" [mode=$m]").getOrElse("")}..."))
+            outcome <- Runner.run(runner, mode, posArgs, root)
+            _ <- IO(printOutcome(name, outcome))
+          } yield if (outcome.ok) ExitCode.Success else ExitCode.Error
+      }
     } yield result
 
   private def printOutcome(name: String, outcome: Runner.Outcome): Unit = {

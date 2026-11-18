@@ -48,10 +48,11 @@ object Doctor {
     case Fail(stepId: String, name: String, reason: String, hint: Option[String])
   }
 
-  /** Run every step in declaration order. Returns the per-step result
-    * list AND a single Boolean for "everything is OK" (no Fail entries).
-    */
-  def run(config: DoctorConfig, ciMode: Boolean): IO[(List[StepResult], Boolean)] = {
+  /**
+   * Run every step in declaration order. Returns the per-step result
+   * list AND a single Boolean for "everything is OK" (no Fail entries).
+   */
+  def run(config: DoctorConfig, ciMode: Boolean): IO[(List[StepResult], Boolean)] =
     config.steps.traverse(step => runStep(step, ciMode)).map { results =>
       val allOk = results.forall {
         case _: StepResult.Ok      => true
@@ -60,12 +61,11 @@ object Doctor {
       }
       (results, allOk)
     }
-  }
 
   private def runStep(step: DoctorConfig.Step, ciMode: Boolean): IO[StepResult] = {
     val displayName = step.name.getOrElse(step.id)
     for {
-      _      <- IO(Term.info(s"── ${step.id} : $displayName ──"))
+      _ <- IO(Term.info(s"── ${step.id} : $displayName ──"))
       check1 <- runCheck(step.check)
       result <-
         if (check1) {
@@ -86,10 +86,10 @@ object Doctor {
 
             case Some(install) =>
               for {
-                _       <- IO(Term.info(s"  → installing: ${install.command} ${install.args.getOrElse(Nil).mkString(" ")}"))
-                exit    <- Proc.exec(install.command, install.args.getOrElse(Nil))
-                check2  <- if (exit == 0) runCheck(step.check) else IO.pure(false)
-                result  <-
+                _ <- IO(Term.info(s"  → installing: ${install.command} ${install.args.getOrElse(Nil).mkString(" ")}"))
+                exit <- Proc.exec(install.command, install.args.getOrElse(Nil))
+                check2 <- if (exit == 0) runCheck(step.check) else IO.pure(false)
+                result <-
                   if (check2)
                     IO(Term.ok(s"  ✓ installed and verified")).as(StepResult.Ok(step.id, displayName))
                   else {
@@ -107,7 +107,7 @@ object Doctor {
   }
 
   /** Run the check sub-command and return whether all assertions pass. */
-  private def runCheck(check: DoctorConfig.Check): IO[Boolean] = {
+  private def runCheck(check: DoctorConfig.Check): IO[Boolean] =
     Proc.run(check.command, check.args.getOrElse(Nil)).map { result =>
       val cond = check.`success-when`.getOrElse(DoctorConfig.SuccessWhen())
       val exitOk =
@@ -137,5 +137,4 @@ object Doctor {
       }
       exitOk && stdoutOk && stdoutMatchesOk && stderrContainsOk && stderrMatchesOk
     }
-  }
 }

@@ -47,21 +47,22 @@ object ProcCmd {
 
   /** Categorization of a process — used for filtering and display. */
   enum Kind {
-    case Sbt    // sbt-launch.jar / sbt-launcher.jar
+    case Sbt // sbt-launch.jar / sbt-launcher.jar
     case Metals // metals-language-server
-    case Java   // any other java process
-    case Other  // anything else (only shown when --kind all and not filtered out)
+    case Java // any other java process
+    case Other // anything else (only shown when --kind all and not filtered out)
   }
 
-  /** Summary record for one process. cwd may be empty if lsof / /proc
-    * couldn't resolve it (some root-owned daemons hide their cwd).
-    */
+  /**
+   * Summary record for one process. cwd may be empty if lsof / /proc
+   * couldn't resolve it (some root-owned daemons hide their cwd).
+   */
   final case class ProcInfo(
-    pid:     Long,
-    pcpu:    Double,
-    pmem:    Double,
-    kind:    Kind,
-    cwd:     String,
+    pid: Long,
+    pcpu: Double,
+    pmem: Double,
+    kind: Kind,
+    cwd: String,
     command: String
   )
 
@@ -86,7 +87,7 @@ object ProcCmd {
 
   def list(args: Cli.Args): IO[ExitCode] = {
     val kindFilter = parseKindFilter(args.flag("kind").getOrElse("all"))
-    val dirFilter  = args.flag("dir").map(d => new File(d).getAbsoluteFile)
+    val dirFilter = args.flag("dir").map(d => new File(d).getAbsoluteFile)
     for {
       procs <- discover()
       filtered = filterProcs(procs, kindFilter, dirFilter)
@@ -96,7 +97,7 @@ object ProcCmd {
 
   // -- kill ---------------------------------------------------------
 
-  def kill(args: Cli.Args): IO[ExitCode] = {
+  def kill(args: Cli.Args): IO[ExitCode] =
     args.flag("pid") match {
       case Some(pidStr) =>
         pidStr.toLongOption match {
@@ -105,47 +106,46 @@ object ProcCmd {
         }
       case None =>
         val kindFilter = parseKindFilter(args.flag("kind").getOrElse("sbt"))
-        val dirFilter  = args.flag("dir").map(d => new File(d).getAbsoluteFile)
+        val dirFilter = args.flag("dir").map(d => new File(d).getAbsoluteFile)
         if (kindFilter.isEmpty && dirFilter.isEmpty) {
           IO(Term.err("Refusing to kill processes without --kind or --dir filter. " +
             "Use `re-scale proc kill --kind all --dir /path` if you really mean it."))
             .as(ExitCode.Error)
         } else {
           for {
-            procs   <- discover()
-            matched  = filterProcs(procs, kindFilter, dirFilter)
-            _       <- if (matched.isEmpty)
-                         IO(Term.warn("No matching processes to kill"))
-                       else
-                         IO(Term.info(s"Killing ${matched.size} process(es)..."))
-            _       <- matched.traverse_(p => killOne(p.pid))
+            procs <- discover()
+            matched = filterProcs(procs, kindFilter, dirFilter)
+            _ <- if (matched.isEmpty)
+              IO(Term.warn("No matching processes to kill"))
+            else
+              IO(Term.info(s"Killing ${matched.size} process(es)..."))
+            _ <- matched.traverse_(p => killOne(p.pid))
           } yield ExitCode.Success
         }
     }
-  }
 
   /** Send SIGTERM, wait 2s, escalate to SIGKILL if still alive. */
-  private def killOne(pid: Long): IO[Unit] = {
+  private def killOne(pid: Long): IO[Unit] =
     for {
-      _     <- IO(Term.info(s"  → SIGTERM $pid"))
-      _     <- Proc.signalProcess(pid, 15)
-      _     <- IO.sleep(scala.concurrent.duration.DurationInt(2).seconds)
+      _ <- IO(Term.info(s"  → SIGTERM $pid"))
+      _ <- Proc.signalProcess(pid, 15)
+      _ <- IO.sleep(scala.concurrent.duration.DurationInt(2).seconds)
       alive <- Proc.isAlive(pid)
-      _     <- if (alive)
-                 IO(Term.warn(s"  → still alive, SIGKILL $pid")) *>
-                 Proc.signalProcess(pid, 9).void
-               else
-                 IO(Term.ok(s"  ✓ $pid stopped"))
+      _ <- if (alive)
+        IO(Term.warn(s"  → still alive, SIGKILL $pid")) *>
+          Proc.signalProcess(pid, 9).void
+      else
+        IO(Term.ok(s"  ✓ $pid stopped"))
     } yield ()
-  }
 
   // -- discovery ----------------------------------------------------
 
-  /** Discover all sbt/java/metals processes via `ps`. Each entry is
-    * augmented with its working directory (via lsof on macOS, /proc on
-    * Linux) when possible.
-    */
-  def discover(): IO[List[ProcInfo]] = {
+  /**
+   * Discover all sbt/java/metals processes via `ps`. Each entry is
+   * augmented with its working directory (via lsof on macOS, /proc on
+   * Linux) when possible.
+   */
+  def discover(): IO[List[ProcInfo]] =
     Proc.run("ps", List("-axwwo", "pid,pcpu,pmem,args")).flatMap { result =>
       if (!result.ok) IO.pure(Nil)
       else {
@@ -158,15 +158,15 @@ object ProcCmd {
         }
       }
     }
-  }
 
-  /** Parse `ps -axwwo pid,pcpu,pmem,args` output into ProcInfo records.
-    * Skips the header line. The pcpu/pmem columns are floats.
-    *
-    * The `args` column may itself contain whitespace, so we split into
-    * 4 parts only: the first 3 are pid, pcpu, pmem; everything after
-    * is the command.
-    */
+  /**
+   * Parse `ps -axwwo pid,pcpu,pmem,args` output into ProcInfo records.
+   * Skips the header line. The pcpu/pmem columns are floats.
+   *
+   * The `args` column may itself contain whitespace, so we split into
+   * 4 parts only: the first 3 are pid, pcpu, pmem; everything after
+   * is the command.
+   */
   private[proc] def parsePsOutput(stdout: String): List[ProcInfo] = {
     val lines = stdout.split("\n").toList
     lines.iterator
@@ -178,11 +178,11 @@ object ProcCmd {
         if (parts.length < 4) None
         else
           for {
-            pid  <- parts(0).toLongOption
-            cpu  <- parts(1).toDoubleOption
-            mem  <- parts(2).toDoubleOption
+            pid <- parts(0).toLongOption
+            cpu <- parts(1).toDoubleOption
+            mem <- parts(2).toDoubleOption
           } yield {
-            val cmd  = parts(3)
+            val cmd = parts(3)
             val kind = classifyCommand(cmd)
             ProcInfo(pid, cpu, mem, kind, cwd = "", command = cmd)
           }
@@ -194,14 +194,17 @@ object ProcCmd {
     val lower = cmd.toLowerCase
     if (lower.contains("sbt-launch") || lower.contains("sbt-launcher") || lower.contains("xsbt.boot")) Kind.Sbt
     else if (lower.contains("metals-language-server") || lower.contains("scalameta.metals")) Kind.Metals
-    else if (lower.contains("java ") || lower.startsWith("java") || lower.contains("/java ") || lower.contains("/java\t")) Kind.Java
+    else if (
+      lower.contains("java ") || lower.startsWith("java") || lower.contains("/java ") || lower.contains("/java\t")
+    ) Kind.Java
     else Kind.Other
   }
 
-  /** Resolve a process's working directory. macOS: via `lsof -a -d cwd
-    * -p <pid> -Fn`. Linux: via `readlink /proc/<pid>/cwd`. Returns ""
-    * on failure.
-    */
+  /**
+   * Resolve a process's working directory. macOS: via `lsof -a -d cwd
+   * -p <pid> -Fn`. Linux: via `readlink /proc/<pid>/cwd`. Returns ""
+   * on failure.
+   */
   private def cwdOf(pid: Long): IO[String] = {
     val isMac = sys.props.getOrElse("os.name", "").toLowerCase.contains("mac")
     if (isMac) {
@@ -227,13 +230,14 @@ object ProcCmd {
 
   // -- filtering ----------------------------------------------------
 
-  /** Empty kind filter = include all. Otherwise only include the
-    * listed kinds. Empty dir filter = no cwd restriction.
-    */
+  /**
+   * Empty kind filter = include all. Otherwise only include the
+   * listed kinds. Empty dir filter = no cwd restriction.
+   */
   private def filterProcs(
-    procs:  List[ProcInfo],
-    kinds:  Set[Kind],
-    dir:    Option[File]
+    procs: List[ProcInfo],
+    kinds: Set[Kind],
+    dir: Option[File]
   ): List[ProcInfo] = {
     val byKind =
       if (kinds.isEmpty) procs
@@ -246,15 +250,16 @@ object ProcCmd {
     }
   }
 
-  /** Parse the `--kind` flag value into a Set of Kinds. Accepts
-    * comma-separated lists and the special value `all`.
-    *
-    *   --kind sbt          → {Sbt}
-    *   --kind sbt,metals   → {Sbt, Metals}
-    *   --kind java         → {Java}
-    *   --kind all          → empty (no filter)
-    */
-  private[proc] def parseKindFilter(spec: String): Set[Kind] = {
+  /**
+   * Parse the `--kind` flag value into a Set of Kinds. Accepts
+   * comma-separated lists and the special value `all`.
+   *
+   *   --kind sbt          → {Sbt}
+   *   --kind sbt,metals   → {Sbt, Metals}
+   *   --kind java         → {Java}
+   *   --kind all          → empty (no filter)
+   */
+  private[proc] def parseKindFilter(spec: String): Set[Kind] =
     if (spec.equalsIgnoreCase("all") || spec.isEmpty) Set.empty
     else
       spec.split(",").iterator.map(_.trim.toLowerCase).flatMap {
@@ -264,7 +269,6 @@ object ProcCmd {
         case "other"  => Some(Kind.Other)
         case _        => None
       }.toSet
-  }
 
   // -- printing -----------------------------------------------------
 
@@ -276,7 +280,7 @@ object ProcCmd {
     println(f"${"PID"}%-7s  ${"%CPU"}%-5s  ${"%MEM"}%-5s  ${"KIND"}%-7s  ${"CWD"}%-50s  COMMAND")
     procs.sortBy(p => (-p.pcpu, p.pid)).foreach { p =>
       val kindStr = p.kind.toString.toUpperCase
-      val cwdStr  = if (p.cwd.length > 50) "…" + p.cwd.takeRight(49) else p.cwd
+      val cwdStr = if (p.cwd.length > 50) "…" + p.cwd.takeRight(49) else p.cwd
       val cmdTrunc = if (p.command.length > 80) p.command.take(77) + "..." else p.command
       println(f"${p.pid}%-7d  ${p.pcpu}%-5.1f  ${p.pmem}%-5.1f  $kindStr%-7s  $cwdStr%-50s  $cmdTrunc")
     }

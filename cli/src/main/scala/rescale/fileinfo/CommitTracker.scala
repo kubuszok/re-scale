@@ -21,20 +21,20 @@ import java.time.LocalDate
 object CommitTracker {
 
   final case class TrackResult(
-    filePath:    String,
+    filePath: String,
     originalSrc: String,
-    oldCommit:   Option[String],
-    newCommit:   String,
-    changed:     Boolean
+    oldCommit: Option[String],
+    newCommit: String,
+    changed: Boolean
   )
 
   def run(
-    root:   File,
-    files:  Stream[IO, Path],
-    pred:   Option[Predicate.Expr],
-    mr:     Boolean,
+    root: File,
+    files: Stream[IO, Path],
+    pred: Option[Predicate.Expr],
+    mr: Boolean,
     dryRun: Boolean
-  ): IO[ExitCode] = {
+  ): IO[ExitCode] =
     for {
       srcRepos <- IO.blocking(SourceReposConfig.load(Paths.sourceReposConfig(root)))
       migTable <- {
@@ -75,18 +75,17 @@ object CommitTracker {
               failures.foreach { case Left(err) => Term.warn(err); case _ => () }
             }
           } *>
-          updateMigrationDb(root, tracked.filter(_.changed), dryRun).as {
-            if (failures.nonEmpty) ExitCode.Error else ExitCode.Success
-          }
+            updateMigrationDb(root, tracked.filter(_.changed), dryRun).as {
+              if (failures.nonEmpty) ExitCode.Error else ExitCode.Success
+            }
         }
     } yield exitCode
-  }
 
   private def trackOne(
-    file:     File,
-    fp:       FileHeader.FileProperties,
-    root:     File,
-    dryRun:   Boolean,
+    file: File,
+    fp: FileHeader.FileProperties,
+    root: File,
+    dryRun: Boolean,
     srcRepos: SourceReposConfig,
     migTable: Tsv.Table
   ): IO[Either[String, TrackResult]] = {
@@ -99,11 +98,14 @@ object CommitTracker {
         val relPath = relativize(root, file)
         val sourceLib = migTable.rows.find { row =>
           MigrationDb.portPath(row) == relPath ||
-            row.getOrElse("source_path", "") == src
+          row.getOrElse("source_path", "") == src
         }.flatMap(_.get("source_lib")).filter(_.nonEmpty)
 
         val (gitRoot, gitPath) = SourceReposConfig.resolveGitRoot(
-          srcRepos.`source-repos`, src, sourceLib, root
+          srcRepos.`source-repos`,
+          src,
+          sourceLib,
+          root
         )
 
         Proc.run("git", List("log", "-1", "--format=%H", "--", gitPath), cwd = Some(gitRoot)).flatMap { r =>
@@ -127,10 +129,10 @@ object CommitTracker {
   }
 
   private def updateMigrationDb(
-    root:    File,
+    root: File,
     results: List[TrackResult],
-    dryRun:  Boolean
-  ): IO[Unit] = {
+    dryRun: Boolean
+  ): IO[Unit] =
     if (results.isEmpty || dryRun) IO.unit
     else {
       val migFile = Paths.migrationTsv(root)
@@ -155,7 +157,6 @@ object CommitTracker {
           }.void
       }
     }
-  }
 
   private def relativize(root: File, file: File): String = {
     val rootPath = root.toPath.toAbsolutePath

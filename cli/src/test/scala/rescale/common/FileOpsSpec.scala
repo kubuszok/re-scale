@@ -39,7 +39,7 @@ final class FileOpsSpec extends CatsEffectSuite {
   }
 
   test("streamLines yields 1-indexed (line, text) pairs") {
-    val f   = writeFile(new File(tempDir(), "sample.txt"), "alpha\nbeta\ngamma\n")
+    val f = writeFile(new File(tempDir(), "sample.txt"), "alpha\nbeta\ngamma\n")
     val got = FileOps.streamLines(f).compile.toList
     got.map { rows =>
       // `dropTrailingEmpty` strips the synthetic empty line that fs2's
@@ -53,7 +53,9 @@ final class FileOpsSpec extends CatsEffectSuite {
     val f = new File(tempDir(), "big.txt")
     val w = new PrintWriter(f)
     try {
-      (1 to 10000).foreach(i => w.write(s"line-$i with some padding to make it ~100 chars or so xxxxxxxxxxxxxxxxxxxxxxxxx\n"))
+      (1 to 10000).foreach(i =>
+        w.write(s"line-$i with some padding to make it ~100 chars or so xxxxxxxxxxxxxxxxxxxxxxxxx\n")
+      )
     } finally w.close()
     f.deleteOnExit()
 
@@ -64,7 +66,7 @@ final class FileOpsSpec extends CatsEffectSuite {
 
   test("streamFiles walks a subtree and filters by extension") {
     val root = tempDir()
-    val sub  = new File(root, "nested/deeper")
+    val sub = new File(root, "nested/deeper")
     sub.mkdirs()
     writeFile(new File(root, "a.scala"), "// a")
     writeFile(new File(sub, "b.scala"), "// b")
@@ -96,10 +98,10 @@ final class FileOpsSpec extends CatsEffectSuite {
   }
 
   test("writeLines + foldLines round trip") {
-    val f     = new File(tempDir(), "written.txt")
+    val f = new File(tempDir(), "written.txt")
     val lines = Stream.emits(List("first", "second", "third")).covary[IO]
     val io = for {
-      _     <- FileOps.writeLines(f, lines)
+      _ <- FileOps.writeLines(f, lines)
       lines <- FileOps.foldLines(f, Vector.empty[String])((acc, pair) => acc :+ pair._2)
     } yield lines
 

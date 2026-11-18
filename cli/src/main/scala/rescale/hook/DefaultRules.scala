@@ -26,15 +26,16 @@ import rescale.hook.Rule.Condition as C
 
 object DefaultRules {
 
-  /** Common git flags that change the target repo but don't affect
-    * which subcommand is being run. Wrapping git rules in
-    * `Ignoring(gitIgnoreFlags, ...)` lets `git -C /repo status` match
-    * the same rules as `git status`.
-    */
+  /**
+   * Common git flags that change the target repo but don't affect
+   * which subcommand is being run. Wrapping git rules in
+   * `Ignoring(gitIgnoreFlags, ...)` lets `git -C /repo status` match
+   * the same rules as `git status`.
+   */
   private val gitIgnoreFlags: List[(String, Int)] = List(
-    ("-C", 1),        // -C <path>: run as if started in <path>
+    ("-C", 1), // -C <path>: run as if started in <path>
     ("--git-dir", 1), // --git-dir <path>: set .git directory
-    ("-c", 1),        // -c <key=value>: set config for this invocation
+    ("-c", 1), // -c <key=value>: set config for this invocation
     ("--work-tree", 1),
     ("--namespace", 1),
     ("--no-replace-objects", 0),
@@ -42,9 +43,10 @@ object DefaultRules {
     ("--no-optional-locks", 0)
   )
 
-  /** Wrap a condition in Ignoring(gitIgnoreFlags, ...) so that git
-    * flags like `-C <path>` are stripped before matching subcommands.
-    */
+  /**
+   * Wrap a condition in Ignoring(gitIgnoreFlags, ...) so that git
+   * flags like `-C <path>` are stripped before matching subcommands.
+   */
   private def gitIgnoring(cond: C): C = C.Ignoring(gitIgnoreFlags, cond)
 
   /** The canonical re-scale rule set. The first matching rule wins. */
@@ -55,7 +57,7 @@ object DefaultRules {
       // call re-scale itself).
       // ============================================================
       RuleEntry(
-        when   = C.ProgramIn(List("re-scale", "ssg-dev", "sge-dev")),
+        when = C.ProgramIn(List("re-scale", "ssg-dev", "sge-dev")),
         action = Some(Decision.Allow)
       ),
 
@@ -63,7 +65,7 @@ object DefaultRules {
       // Trusted build / package / runtime tools.
       // ============================================================
       RuleEntry(
-        when   = C.ProgramIn(List("scala-cli", "cs", "coursier", "npm", "npx", "cargo")),
+        when = C.ProgramIn(List("scala-cli", "cs", "coursier", "npm", "npx", "cargo")),
         action = Some(Decision.Allow)
       ),
       RuleEntry(
@@ -81,7 +83,7 @@ object DefaultRules {
         action = Some(Decision.Allow)
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("sbt")),
+        when = C.ProgramIn(List("sbt")),
         action = Some(Decision.Deny("Use 'sbt --client' instead of bare 'sbt' (hangs on build.sbt errors)"))
       ),
 
@@ -98,7 +100,7 @@ object DefaultRules {
         action = Some(Decision.Deny("Destructive: rm with -r/-rf/-f flags requires human confirmation"))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("rm")),
+        when = C.ProgramIn(List("rm")),
         action = Some(Decision.Deny("rm requires confirmation — use re-scale or a safer alternative"))
       ),
 
@@ -117,8 +119,9 @@ object DefaultRules {
       // Process killers
       // ============================================================
       RuleEntry(
-        when   = C.ProgramIn(List("kill", "killall", "pkill")),
-        action = Some(Decision.Deny("Process kill — use 're-scale proc list' and 're-scale proc kill' for safe management"))
+        when = C.ProgramIn(List("kill", "killall", "pkill")),
+        action =
+          Some(Decision.Deny("Process kill — use 're-scale proc list' and 're-scale proc kill' for safe management"))
       ),
 
       // ============================================================
@@ -128,7 +131,7 @@ object DefaultRules {
       // Projects that need adb can allow it via .rescale/claude-hooks.yaml.
       // ============================================================
       RuleEntry(
-        when   = C.ProgramIn(List("adb", "fastboot")),
+        when = C.ProgramIn(List("adb", "fastboot")),
         action = Some(Decision.Deny("adb/fastboot commands require explicit opt-in via .rescale/claude-hooks.yaml"))
       ),
 
@@ -140,7 +143,7 @@ object DefaultRules {
       // and similar accidental sudo-like writes.
       // ============================================================
       RuleEntry(
-        when   = C.HasRedirectTargetPrefix(List("/etc/", "/usr/", "/System/", "/Library/")),
+        when = C.HasRedirectTargetPrefix(List("/etc/", "/usr/", "/System/", "/Library/")),
         action = Some(Decision.Deny("Refusing to write under a system directory (/etc, /usr, /System, /Library)"))
       ),
 
@@ -179,23 +182,23 @@ object DefaultRules {
       // that can be re-inspected, instead of one-shot pipelines that
       // truncate output the agent will then have to re-run.
       RuleEntry(
-        when   = C.FollowedBy(C.ProgramIn(List("head", "tail", "wc", "grep", "rg", "ripgrep"))),
+        when = C.FollowedBy(C.ProgramIn(List("head", "tail", "wc", "grep", "rg", "ripgrep"))),
         action = Some(Decision.Deny(
           "Don't pipe to head/tail/wc/grep — write the upstream output to a file " +
-          "(e.g. `cmd > /tmp/out`) and then read it with the Read tool, or use the " +
-          "Grep tool for filtering. Pipelines truncate output you may need to re-inspect."
+            "(e.g. `cmd > /tmp/out`) and then read it with the Read tool, or use the " +
+            "Grep tool for filtering. Pipelines truncate output you may need to re-inspect."
         ))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("grep", "rg", "ripgrep")),
+        when = C.ProgramIn(List("grep", "rg", "ripgrep")),
         action = Some(Decision.Deny("Use the Grep tool instead of grep/rg"))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("find")),
+        when = C.ProgramIn(List("find")),
         action = Some(Decision.Deny("Use the Glob tool instead of find"))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("ls")),
+        when = C.ProgramIn(List("ls")),
         action = Some(Decision.Deny("Use the Glob tool instead of ls"))
       ),
       // `cat` is universally safe — the dangerous case (`cat secret.env`,
@@ -215,18 +218,18 @@ object DefaultRules {
         action = Some(Decision.Deny("Use the Write or Edit tool instead of echo redirect"))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("sed", "awk", "perl")),
+        when = C.ProgramIn(List("sed", "awk", "perl")),
         action = Some(Decision.Deny("Use the Edit tool instead of sed/awk/perl"))
       ),
       // Note: `wc` was previously in this list but it's been moved to
       // the pipe-to-filter rule above. Standalone `wc -l foo.txt` is
       // fine; only `cmd | wc -l` is the anti-pattern.
       RuleEntry(
-        when   = C.ProgramIn(List("sort", "uniq", "cut", "tr", "xargs")),
+        when = C.ProgramIn(List("sort", "uniq", "cut", "tr", "xargs")),
         action = Some(Decision.Deny("Use dedicated tools or re-scale flags instead of sort/uniq/cut/tr/xargs"))
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("python", "python3", "ruby", "node")),
+        when = C.ProgramIn(List("python", "python3", "ruby", "node")),
         action = Some(Decision.Deny("Ad-hoc scripting not allowed — use re-scale utilities instead"))
       ),
 
@@ -238,7 +241,8 @@ object DefaultRules {
           C.ProgramIn(List("curl", "wget")),
           C.HasAnySuffix(List(".jar", ".tar.gz", ".tgz", ".zip"))
         )),
-        action = Some(Decision.Ask("Downloading archives to grep through them bypasses MCP/build tools — confirm intent"))
+        action =
+          Some(Decision.Ask("Downloading archives to grep through them bypasses MCP/build tools — confirm intent"))
       ),
 
       // ============================================================
@@ -344,7 +348,7 @@ object DefaultRules {
         action = Some(Decision.Allow)
       ),
       RuleEntry(
-        when   = C.ProgramIn(List("git")),
+        when = C.ProgramIn(List("git")),
         action = Some(Decision.Ask("Unknown git subcommand — confirm with user"))
       ),
 
@@ -392,14 +396,49 @@ object DefaultRules {
       // ============================================================
       RuleEntry(
         when = C.ProgramIn(List(
-          "cd", "pwd", "which", "type", "command", "test", "[", "true", "false",
-          "mkdir", "env", "printenv", "date", "uname", "arch", "hostname",
-          "file", "otool", "ldd", "dumpbin",
-          "tar", "unzip", "gzip", "gunzip",
-          "mv", "cp", "ln", "touch", "chmod",
-          "codesign", "install_name_tool",
-          "sleep", "tee", "echo", "printf",
-          "export", "source", ".", "set", "unset", "local", "declare", "readonly"
+          "cd",
+          "pwd",
+          "which",
+          "type",
+          "command",
+          "test",
+          "[",
+          "true",
+          "false",
+          "mkdir",
+          "env",
+          "printenv",
+          "date",
+          "uname",
+          "arch",
+          "hostname",
+          "file",
+          "otool",
+          "ldd",
+          "dumpbin",
+          "tar",
+          "unzip",
+          "gzip",
+          "gunzip",
+          "mv",
+          "cp",
+          "ln",
+          "touch",
+          "chmod",
+          "codesign",
+          "install_name_tool",
+          "sleep",
+          "tee",
+          "echo",
+          "printf",
+          "export",
+          "source",
+          ".",
+          "set",
+          "unset",
+          "local",
+          "declare",
+          "readonly"
         )),
         action = Some(Decision.Allow)
       ),
@@ -409,7 +448,7 @@ object DefaultRules {
       // (Equivalent to the legacy `case _ => Decision.Allow`.)
       // ============================================================
       RuleEntry(
-        when   = C.True,
+        when = C.True,
         action = Some(Decision.Allow)
       )
     )

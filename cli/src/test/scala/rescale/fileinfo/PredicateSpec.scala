@@ -79,12 +79,15 @@ final class PredicateSpec extends FunSuite {
 
   test("parse: && has higher precedence than ||") {
     val r = Predicate.parse("a=1 || b=2 && c=3")
-    assertEquals(r, Right(
-      Expr.Or(
-        Expr.Eq("a", "1"),
-        Expr.And(Expr.Eq("b", "2"), Expr.Eq("c", "3"))
+    assertEquals(
+      r,
+      Right(
+        Expr.Or(
+          Expr.Eq("a", "1"),
+          Expr.And(Expr.Eq("b", "2"), Expr.Eq("c", "3"))
+        )
       )
-    ))
+    )
   }
 
   test("parse: negation") {
@@ -94,26 +97,35 @@ final class PredicateSpec extends FunSuite {
 
   test("parse: parentheses override precedence") {
     val r = Predicate.parse("(a=1 || b=2) && c=3")
-    assertEquals(r, Right(
-      Expr.And(
-        Expr.Or(Expr.Eq("a", "1"), Expr.Eq("b", "2")),
-        Expr.Eq("c", "3")
+    assertEquals(
+      r,
+      Right(
+        Expr.And(
+          Expr.Or(Expr.Eq("a", "1"), Expr.Eq("b", "2")),
+          Expr.Eq("c", "3")
+        )
       )
-    ))
+    )
   }
 
   test("parse: negation of parenthesized expr") {
     val r = Predicate.parse("!(a=1 && b=2)")
-    assertEquals(r, Right(
-      Expr.Not(Expr.And(Expr.Eq("a", "1"), Expr.Eq("b", "2")))
-    ))
+    assertEquals(
+      r,
+      Right(
+        Expr.Not(Expr.And(Expr.Eq("a", "1"), Expr.Eq("b", "2")))
+      )
+    )
   }
 
   test("parse: three-way AND") {
     val r = Predicate.parse("a=1 && b=2 && c=3")
-    assertEquals(r, Right(
-      Expr.And(Expr.And(Expr.Eq("a", "1"), Expr.Eq("b", "2")), Expr.Eq("c", "3"))
-    ))
+    assertEquals(
+      r,
+      Right(
+        Expr.And(Expr.And(Expr.Eq("a", "1"), Expr.Eq("b", "2")), Expr.Eq("c", "3"))
+      )
+    )
   }
 
   // -- parse: errors ----------------------------------------------------
@@ -131,11 +143,11 @@ final class PredicateSpec extends FunSuite {
   // -- evaluate ---------------------------------------------------------
 
   private val props = Map(
-    "covenant"         -> "full-port",
-    "status"           -> "ported",
-    "authors"          -> "alice,bob",
+    "covenant" -> "full-port",
+    "status" -> "ported",
+    "authors" -> "alice,bob",
     "source-reference" -> "lib/src/foo.dart",
-    "baseline-loc"     -> "1153"
+    "baseline-loc" -> "1153"
   )
 
   test("evaluate: Eq match") {

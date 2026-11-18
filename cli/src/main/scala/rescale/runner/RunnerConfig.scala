@@ -52,22 +52,22 @@ final case class RunnersConfig(
 object RunnersConfig {
 
   final case class Runner(
-    description: Option[String]              = None,
-    invoke:      Invoke,
-    `mode-file`: Option[ModeFile]            = None,
-    output:      Option[OutputSpec]          = None,
-    modes:       Map[String, Map[String, String]] = Map.empty
+    description: Option[String] = None,
+    invoke: Invoke,
+    `mode-file`: Option[ModeFile] = None,
+    output: Option[OutputSpec] = None,
+    modes: Map[String, Map[String, String]] = Map.empty
   ) derives KindlingsYamlCodec
 
   final case class Invoke(
     command: String,
-    args:    Option[List[String]] = None,
-    cwd:     Option[String]       = None
+    args: Option[List[String]] = None,
+    cwd: Option[String] = None
   ) derives KindlingsYamlCodec
 
   final case class ModeFile(
-    path:   String,
-    format: String = "kv"   // currently only `kv` is supported
+    path: String,
+    format: String = "kv" // currently only `kv` is supported
   ) derives KindlingsYamlCodec
 
   final case class OutputSpec(
@@ -76,18 +76,18 @@ object RunnersConfig {
   ) derives KindlingsYamlCodec
 
   final case class Pattern(
-    regex:   String,
+    regex: String,
     capture: Map[String, Int] = Map.empty
   ) derives KindlingsYamlCodec
 
   final case class Failure(
     `keep-lines-matching`: List[String] = Nil,
-    `max-lines`:           Int          = 20
+    `max-lines`: Int = 20
   ) derives KindlingsYamlCodec
 
   // -- Loader -------------------------------------------------------
 
-  def load(file: File): Either[String, RunnersConfig] = {
+  def load(file: File): Either[String, RunnersConfig] =
     if (!file.exists()) Right(RunnersConfig(Map.empty))
     else {
       val src = Source.fromFile(file)
@@ -96,7 +96,6 @@ object RunnersConfig {
         finally src.close()
       parse(text)
     }
-  }
 
   def parse(yamlText: String): Either[String, RunnersConfig] =
     yamlText.as[RunnersConfig] match {

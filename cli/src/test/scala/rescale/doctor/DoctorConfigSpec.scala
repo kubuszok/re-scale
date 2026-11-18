@@ -87,7 +87,7 @@ final class DoctorConfigSpec extends FunSuite {
         |        stderr-matches: 'version "([0-9]+)\.'
         |""".stripMargin
     val cfg = DoctorConfig.parse(yaml).toOption.get
-    val sw  = cfg.steps.head.check.`success-when`.get
+    val sw = cfg.steps.head.check.`success-when`.get
     assertEquals(sw.`exit-code`, Some(0))
     assertEquals(sw.`stdout-contains`, None)
     assert(sw.`stderr-matches`.exists(_.contains("version")))

@@ -15,16 +15,16 @@ import kubuszok.sbt.*
 import kubuszok.sbt.KubuszokPlugin.autoImport.*
 import scala.scalanative.build.*
 
-val scala3    = "3.8.3"
+val scala3 = "3.8.3"
 val platforms = List(VirtualAxis.jvm, VirtualAxis.native)
 
 // Bumping these requires re-running the memory-bound test suite.
 val catsEffectVersion = "3.7.0"
-val fs2Version        = "3.13.0"
-val catsParseVersion  = "1.1.0"
-val munitVersion      = "1.3.6" // 1.2.x pins Scala Native test-interface 0.5.10, below sbt-kubuszok's 0.5.12
-val munitCeVersion    = "2.2.0"
-val kindlingsVersion  = "0.1.0"
+val fs2Version = "3.13.0"
+val catsParseVersion = "1.1.0"
+val munitVersion = "1.3.6" // 1.2.x pins Scala Native test-interface 0.5.10, below sbt-kubuszok's 0.5.12
+val munitCeVersion = "2.2.0"
+val kindlingsVersion = "0.1.0"
 
 // Immix heap ceiling compiled into the executable, so no wrapper has to set it; GC_MAXIMUM_HEAP_SIZE still overrides.
 val maxHeapSize = "1G"
@@ -32,18 +32,18 @@ val maxHeapSize = "1G"
 // Coursier platform names (`cs install --install-platform`); the release attaches `re-scale-<platform>` from
 // `nativeBinariesDir` as the artifact with that classifier, so an app descriptor can use `${platform}` directly.
 val nativeBinaryPlatforms = Seq("x86_64-pc-linux", "aarch64-pc-linux", "x86_64-apple-darwin", "aarch64-apple-darwin")
-val nativeBinariesDir     = file(sys.env.getOrElse("RESCALE_NATIVE_BINARIES", "target/native-binaries"))
+val nativeBinariesDir = file(sys.env.getOrElse("RESCALE_NATIVE_BINARIES", "target/native-binaries"))
 
 val dev = new DevProperties(scala213 = None, scala3 = Some(scala3), platforms = platforms)
 
-val stage   = taskKey[File]("Copy the linked executable and the bin/re-scale wrapper into target/stage/bin")
+val stage = taskKey[File]("Copy the linked executable and the bin/re-scale wrapper into target/stage/bin")
 val install = taskKey[File]("Copy the linked executable to .build/re-scale-bin, which survives `clean`")
 
 val publishSettings = Seq(
-  organization         := "com.kubuszok",
-  homepage             := Some(url("https://github.com/kubuszok/re-scale")),
+  organization := "com.kubuszok",
+  homepage := Some(url("https://github.com/kubuszok/re-scale")),
   organizationHomepage := Some(url("https://kubuszok.com")),
-  licenses             := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
+  licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
   scmInfo := Some(
     ScmInfo(url("https://github.com/kubuszok/re-scale/"), "scm:git:git@github.com:kubuszok/re-scale.git")
   ),
@@ -76,10 +76,10 @@ val nativeSettings = MatrixAction
         }.toMap
       },
       stage := Def.uncached {
-        val linked   = fileConverter.value.toPath((Compile / nativeLink).value).toFile
+        val linked = fileConverter.value.toPath((Compile / nativeLink).value).toFile
         val stageDir = (ThisBuild / baseDirectory).value / "target" / "stage" / "bin"
         IO.createDirectory(stageDir)
-        val binDest     = stageDir / "re-scale-bin"
+        val binDest = stageDir / "re-scale-bin"
         val wrapperDest = stageDir / "re-scale"
         IO.copyFile(linked, binDest)
         IO.copyFile((ThisBuild / baseDirectory).value / "bin" / "re-scale", wrapperDest)
@@ -88,7 +88,7 @@ val nativeSettings = MatrixAction
         stageDir
       },
       install := Def.uncached {
-        val linked   = fileConverter.value.toPath((Compile / nativeLink).value).toFile
+        val linked = fileConverter.value.toPath((Compile / nativeLink).value).toFile
         val buildDir = (ThisBuild / baseDirectory).value / ".build"
         IO.createDirectory(buildDir)
         val dest = buildDir / "re-scale-bin"
@@ -107,8 +107,8 @@ lazy val cli = projectMatrix
   .someVariations(List(scala3), platforms)((dev.only1VersionInIDE :+ nativeSettings) *)
   .settings(publishSettings)
   .settings(
-    name        := "re-scale",
-    moduleName  := "re-scale",
+    name := "re-scale",
+    moduleName := "re-scale",
     description := "Scala porting toolkit CLI: Claude Code hook, enforcement gates and migration tracking",
     scalacOptions ++= Seq(
       "-deprecation",
@@ -133,14 +133,14 @@ lazy val cli = projectMatrix
       Seq(file)
     }.taskValue,
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-effect"               % catsEffectVersion,
-      "co.fs2"        %% "fs2-core"                  % fs2Version,
-      "co.fs2"        %% "fs2-io"                    % fs2Version,
-      "com.kubuszok"  %% "kindlings-yaml-derivation" % kindlingsVersion,
-      "com.kubuszok"  %% "kindlings-jsoniter-json"   % kindlingsVersion,
-      "org.typelevel" %% "cats-parse"                % catsParseVersion,
-      "org.scalameta" %% "munit"                     % munitVersion   % Test,
-      "org.typelevel" %% "munit-cats-effect"         % munitCeVersion % Test
+      "org.typelevel" %% "cats-effect" % catsEffectVersion,
+      "co.fs2" %% "fs2-core" % fs2Version,
+      "co.fs2" %% "fs2-io" % fs2Version,
+      "com.kubuszok" %% "kindlings-yaml-derivation" % kindlingsVersion,
+      "com.kubuszok" %% "kindlings-jsoniter-json" % kindlingsVersion,
+      "org.typelevel" %% "cats-parse" % catsParseVersion,
+      "org.scalameta" %% "munit" % munitVersion % Test,
+      "org.typelevel" %% "munit-cats-effect" % munitCeVersion % Test
     ),
     testFrameworks += new TestFramework("munit.Framework")
   )
@@ -156,7 +156,7 @@ lazy val al = new Aliases(published = Seq(cli)) {
       .mkString(" ; ")
   // The native row stages the executable after `clean`: its memory-bound specs spawn it.
   override def ci(platform: String, scalaBinary: String): String = {
-    val steps  = full(super.ci(platform, scalaBinary)).split(" ; ").toVector
+    val steps = full(super.ci(platform, scalaBinary)).split(" ; ").toVector
     val staged = if (platform == "Native") steps.head +: "cliNative/stage" +: steps.tail else steps
     (staged ++ projectIds(published, platform, scalaBinary).map(id => s"$id/doc")).mkString(" ; ")
   }

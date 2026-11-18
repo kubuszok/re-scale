@@ -11,13 +11,13 @@ package rescale.fileinfo
 import cats.effect.IO
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{Files as NIOFiles}
+import java.nio.file.Files as NIOFiles
 
 object FileHeaderApply {
 
   final case class Result(
-    path:    String,
-    action:  String,
+    path: String,
+    action: String,
     updated: Map[String, String]
   )
 
@@ -38,12 +38,12 @@ object FileHeaderApply {
       }
 
       val covenantKeyMap = Map(
-        "covenant"           -> "Covenant",
+        "covenant" -> "Covenant",
         "baseline-spec-pass" -> "Covenant-baseline-spec-pass",
-        "baseline-loc"       -> "Covenant-baseline-loc",
-        "baseline-methods"   -> "Covenant-baseline-methods",
-        "source-reference"   -> "Covenant-source-reference",
-        "verified"           -> "Covenant-verified"
+        "baseline-loc" -> "Covenant-baseline-loc",
+        "baseline-methods" -> "Covenant-baseline-methods",
+        "source-reference" -> "Covenant-source-reference",
+        "verified" -> "Covenant-verified"
       )
 
       val newKvLines = updates.toList.sortBy(_._1).map { case (normKey, value) =>
@@ -61,7 +61,7 @@ object FileHeaderApply {
 
       val newLines: Vector[String] = if (existingKvRange.nonEmpty) {
         val firstExisting = existingKvRange.head
-        val lastExisting  = existingKvRange.last
+        val lastExisting = existingKvRange.last
         val untouched = (headerStart to headerEnd).filterNot(existingKvRange.contains).filter { i =>
           val stripped = stripForMatch(linesVec(i))
           val isKv = """^[A-Za-z][\w-]*\s*:""".r.findFirstIn(stripped).isDefined

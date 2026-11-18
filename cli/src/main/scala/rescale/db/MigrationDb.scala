@@ -19,8 +19,15 @@ import java.time.LocalDate
 object MigrationDb {
 
   val headers: List[String] = List(
-    "source_lib", "source_path", "port_path", "status", "module",
-    "last_updated", "notes", "source_sync_commit", "last_sync_date"
+    "source_lib",
+    "source_path",
+    "port_path",
+    "status",
+    "module",
+    "last_updated",
+    "notes",
+    "source_sync_commit",
+    "last_sync_date"
   )
 
   def portPath(row: Map[String, String]): String =
@@ -30,10 +37,10 @@ object MigrationDb {
     args match {
       case Nil | "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
-      case "list" :: rest  => list(Cli.parse(rest))
-      case "get" :: rest   => get(Cli.parse(rest))
-      case "set" :: rest   => set(Cli.parse(rest))
-      case "stats" :: _    => stats()
+      case "list" :: rest => list(Cli.parse(rest))
+      case "get" :: rest  => get(Cli.parse(rest))
+      case "set" :: rest  => set(Cli.parse(rest))
+      case "stats" :: _   => stats()
       case other :: _ =>
         IO(Term.err(s"Unknown migration command: $other")).as(ExitCode.Error)
     }
@@ -43,8 +50,8 @@ object MigrationDb {
       file <- migrationFile
       base <- loadOrEmpty(file)
       filtered = applyFilters(base, args)
-      paged    = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
-      _        = printTable(paged)
+      paged = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
+      _ = printTable(paged)
     } yield ExitCode.Success
 
   def get(args: Cli.Args): IO[ExitCode] = {
@@ -53,11 +60,11 @@ object MigrationDb {
       file <- migrationFile
       base <- loadOrEmpty(file)
       _ <- base.find(_.getOrElse("source_path", "").contains(path)) match {
-             case Some(row) =>
-               IO(headers.foreach(h => println(s"  $h: ${row.getOrElse(h, "")}")))
-             case None =>
-               IO(Term.err(s"Not found: $path"))
-           }
+        case Some(row) =>
+          IO(headers.foreach(h => println(s"  $h: ${row.getOrElse(h, "")}")))
+        case None =>
+          IO(Term.err(s"Not found: $path"))
+      }
     } yield ExitCode.Success
   }
 
@@ -73,11 +80,11 @@ object MigrationDb {
     for {
       file <- migrationFile
       _ <- Tsv.modify(file) { loaded =>
-             val tbl = if (loaded.headers.isEmpty)
-               Table(headers, Nil, List("# re-scale Migration Database"))
-             else loaded
-             tbl.updateRow(_.getOrElse("source_path", "") == path, updatesMap)
-           }
+        val tbl = if (loaded.headers.isEmpty)
+          Table(headers, Nil, List("# re-scale Migration Database"))
+        else loaded
+        tbl.updateRow(_.getOrElse("source_path", "") == path, updatesMap)
+      }
       _ <- IO(Term.ok(s"Updated: $path"))
     } yield ExitCode.Success
   }
@@ -85,18 +92,18 @@ object MigrationDb {
   def stats(): IO[ExitCode] =
     for {
       file <- migrationFile
-      tbl  <- loadOrEmpty(file)
+      tbl <- loadOrEmpty(file)
       _ <- IO {
-             println("=== Migration Status ===")
-             tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
-             println(f"  ${"Total"}%-20s ${tbl.size}%d")
-             println()
-             println("=== By Library ===")
-             tbl.stats("source_lib").toList.sortBy(-_._2).foreach { case (l, c) => println(f"  $l%-25s $c%d") }
-             println()
-             println("=== By Module ===")
-             tbl.stats("module").toList.sortBy(-_._2).foreach { case (m, c) => println(f"  $m%-25s $c%d") }
-           }
+        println("=== Migration Status ===")
+        tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
+        println(f"  ${"Total"}%-20s ${tbl.size}%d")
+        println()
+        println("=== By Library ===")
+        tbl.stats("source_lib").toList.sortBy(-_._2).foreach { case (l, c) => println(f"  $l%-25s $c%d") }
+        println()
+        println("=== By Module ===")
+        tbl.stats("module").toList.sortBy(-_._2).foreach { case (m, c) => println(f"  $m%-25s $c%d") }
+      }
     } yield ExitCode.Success
 
   // -- helpers ---------------------------------------------------------

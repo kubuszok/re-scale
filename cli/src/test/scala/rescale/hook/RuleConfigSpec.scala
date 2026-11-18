@@ -44,8 +44,8 @@ final class RuleConfigSpec extends FunSuite {
         |""".stripMargin
     val parsed = RuleConfig.parse(yaml)
     val rs = parsed match {
-      case Right(rs)  => rs
-      case Left(err)  => fail(s"parse error: $err")
+      case Right(rs) => rs
+      case Left(err) => fail(s"parse error: $err")
     }
     decideAgainst(rs, "adb shell ls") match {
       case Decision.Deny(r) => assert(r.contains("test android"), s"reason='$r'")
@@ -203,7 +203,7 @@ final class RuleConfigSpec extends FunSuite {
         // (which still permission-decides as `allow` in the wrapped JSON
         // but preserves the user-provided reason).
         assert(r.contains("fine in this project"), s"reason='$r'")
-      case other            => fail(s"expected Allow/Pass from override, got $other")
+      case other => fail(s"expected Allow/Pass from override, got $other")
     }
     // Plain `ls` (no -la) should still hit the default deny.
     decideAgainst(merged, "ls") match {

@@ -32,17 +32,19 @@ object SkipPolicy {
   val headers: List[String] = List("path", "tool", "reason", "added", "added_by")
 
   final case class Entry(
-    path:    String,
-    tool:    String,
-    reason:  String,
-    added:   String,
+    path: String,
+    tool: String,
+    reason: String,
+    added: String,
     addedBy: String
   ) {
-    /** Match this entry against a (file, tool) pair. The path field
-      * matches if the file path starts with it (so a directory entry
-      * covers everything underneath) OR equals it (file entry).
-      * The tool field matches if it equals `tool` or `*`.
-      */
+
+    /**
+     * Match this entry against a (file, tool) pair. The path field
+     * matches if the file path starts with it (so a directory entry
+     * covers everything underneath) OR equals it (file entry).
+     * The tool field matches if it equals `tool` or `*`.
+     */
     def matches(filePath: String, toolName: String): Boolean = {
       val toolOk = tool == "*" || tool == toolName
       if (!toolOk) return false
@@ -52,52 +54,52 @@ object SkipPolicy {
     }
   }
 
-  /** Read the skip-policy file. Returns an empty list if the file
-    * doesn't exist.
-    */
-  def read(file: File): IO[List[Entry]] = {
+  /**
+   * Read the skip-policy file. Returns an empty list if the file
+   * doesn't exist.
+   */
+  def read(file: File): IO[List[Entry]] =
     IO(file.exists()).flatMap {
       case false => IO.pure(Nil)
       case true =>
         Tsv.read(file).map { tbl =>
           tbl.rows.map { r =>
             Entry(
-              path    = r.getOrElse("path", ""),
-              tool    = r.getOrElse("tool", "*"),
-              reason  = r.getOrElse("reason", ""),
-              added   = r.getOrElse("added", ""),
+              path = r.getOrElse("path", ""),
+              tool = r.getOrElse("tool", "*"),
+              reason = r.getOrElse("reason", ""),
+              added = r.getOrElse("added", ""),
               addedBy = r.getOrElse("added_by", "")
             )
           }
         }
     }
-  }
 
-  /** Filter a list of (file path, hit) pairs to drop entries covered
-    * by the skip policy for the given tool name.
-    */
-  def filter[A](policy: List[Entry], toolName: String, filePath: A => String, hits: List[A]): List[A] = {
+  /**
+   * Filter a list of (file path, hit) pairs to drop entries covered
+   * by the skip policy for the given tool name.
+   */
+  def filter[A](policy: List[Entry], toolName: String, filePath: A => String, hits: List[A]): List[A] =
     if (policy.isEmpty) hits
     else hits.filterNot(h => policy.exists(_.matches(filePath(h), toolName)))
-  }
 
-  /** Append an entry to the skip-policy file via Tsv.modify (atomic +
-    * locked).
-    */
-  def add(file: File, entry: Entry): IO[Unit] = {
+  /**
+   * Append an entry to the skip-policy file via Tsv.modify (atomic +
+   * locked).
+   */
+  def add(file: File, entry: Entry): IO[Unit] =
     Tsv.modify(file) { current =>
       val tbl = if (current.headers.isEmpty)
         Table(headers, Nil, List("# re-scale skip-policy"))
       else current
       tbl.addRow(
         Map(
-          "path"     -> entry.path,
-          "tool"     -> entry.tool,
-          "reason"   -> entry.reason,
-          "added"    -> entry.added,
+          "path" -> entry.path,
+          "tool" -> entry.tool,
+          "reason" -> entry.reason,
+          "added" -> entry.added,
           "added_by" -> entry.addedBy
         )
       )
     }.void
-  }
 }

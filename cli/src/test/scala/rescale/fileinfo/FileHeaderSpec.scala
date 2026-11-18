@@ -21,7 +21,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("parses Covenant fields with normalized keys") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | * SPDX-License-Identifier: Apache-2.0
@@ -47,7 +48,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("skips Copyright and SPDX-License-Identifier") {
-    val f = writeFile("b.scala",
+    val f = writeFile(
+      "b.scala",
       """/*
         | * Copyright: 2026 acme
         | * SPDX-License-Identifier: Apache-2.0
@@ -63,7 +65,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("parses plain key-value fields (no prefix)") {
-    val f = writeFile("c.scala",
+    val f = writeFile(
+      "c.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -86,7 +89,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("parses mixed Covenant and plain fields") {
-    val f = writeFile("d.scala",
+    val f = writeFile(
+      "d.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -111,7 +115,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("backward-compat: Covenant-dart-reference normalizes to source-reference") {
-    val f = writeFile("e.scala",
+    val f = writeFile(
+      "e.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-dart-reference: lib/src/old.dart
@@ -125,7 +130,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("rawKeys maps normalized key back to original form") {
-    val f = writeFile("f.scala",
+    val f = writeFile(
+      "f.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-loc: 100
@@ -141,7 +147,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("returns empty properties for file without block comment") {
-    val f = writeFile("g.scala",
+    val f = writeFile(
+      "g.scala",
       """package x
         |class Y { def z: Int = 1 }
         |""".stripMargin
@@ -152,7 +159,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("returns empty properties for file with no key-value lines in comment") {
-    val f = writeFile("h.scala",
+    val f = writeFile(
+      "h.scala",
       """/*
         | * This is just a regular comment.
         | * No key-value pairs here.
@@ -166,7 +174,8 @@ final class FileHeaderSpec extends CatsEffectSuite {
   }
 
   test("handles line-comment style headers") {
-    val f = writeFile("i.scala",
+    val f = writeFile(
+      "i.scala",
       """// Covenant: full-port
         |// original-src: lib/foo.dart
         |package x

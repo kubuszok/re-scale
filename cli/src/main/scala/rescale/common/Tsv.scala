@@ -41,14 +41,14 @@ import scala.collection.mutable.ListBuffer
 object Tsv {
 
   final case class Table(
-    headers:  List[String],
-    rows:     List[Map[String, String]],
+    headers: List[String],
+    rows: List[Map[String, String]],
     comments: List[String] = Nil
   ) {
-    def filter(pred: Map[String, String] => Boolean): Table           = copy(rows = rows.filter(pred))
+    def filter(pred: Map[String, String] => Boolean): Table = copy(rows = rows.filter(pred))
     def find(pred: Map[String, String] => Boolean): Option[Map[String, String]] = rows.find(pred)
-    def sortBy(key: String): Table                                     = copy(rows = rows.sortBy(_.getOrElse(key, "")))
-    def size: Int                                                      = rows.size
+    def sortBy(key: String): Table = copy(rows = rows.sortBy(_.getOrElse(key, "")))
+    def size: Int = rows.size
 
     def paginate(limit: Option[Int], offset: Option[Int]): Table = {
       var r = rows
@@ -70,26 +70,28 @@ object Tsv {
     val empty: Table = Table(Nil, Nil, Nil)
   }
 
-  /** Intermediate state for the streaming parser. The table is built
-    * one line at a time, so peak memory is proportional to the
-    * in-flight Table, not to the file text itself.
-    */
-  private final case class ParseState(
-    headers:     List[String],
-    rows:        ListBuffer[List[String]],
-    comments:    ListBuffer[String],
+  /**
+   * Intermediate state for the streaming parser. The table is built
+   * one line at a time, so peak memory is proportional to the
+   * in-flight Table, not to the file text itself.
+   */
+  final private case class ParseState(
+    headers: List[String],
+    rows: ListBuffer[List[String]],
+    comments: ListBuffer[String],
     headerFound: Boolean
   )
 
-  /** Read a TSV file into a Table via FS2 streaming. Throws on a data
-    * row that appears before the header comment line — we want loud
-    * failure rather than silent schema drift.
-    */
+  /**
+   * Read a TSV file into a Table via FS2 streaming. Throws on a data
+   * row that appears before the header comment line — we want loud
+   * failure rather than silent schema drift.
+   */
   def read(path: Path): IO[Table] = {
     val initial = ParseState(
-      headers     = Nil,
-      rows        = ListBuffer.empty,
-      comments    = ListBuffer.empty,
+      headers = Nil,
+      rows = ListBuffer.empty,
+      comments = ListBuffer.empty,
       headerFound = false
     )
     FileOps
@@ -98,7 +100,7 @@ object Tsv {
       .fold(initial) { case (state, (_, line)) =>
         if (!state.headerFound && line.startsWith("# ") && line.contains("\t")) {
           state.copy(
-            headers     = splitFields(line.drop(2)),
+            headers = splitFields(line.drop(2)),
             headerFound = true
           )
         } else if (line.startsWith("#")) {
@@ -121,26 +123,28 @@ object Tsv {
 
   def read(file: File): IO[Table] = read(Path.fromNioPath(file.toPath))
 
-  /** Read a TSV file, returning an empty Table with the given headers
-    * if the file doesn't exist. Useful for custom DB tables that are
-    * created on first write.
-    */
+  /**
+   * Read a TSV file, returning an empty Table with the given headers
+   * if the file doesn't exist. Useful for custom DB tables that are
+   * created on first write.
+   */
   def readOrEmpty(file: File, headers: List[String]): IO[Table] =
     IO.blocking(file.exists()).flatMap {
       case true  => read(file)
       case false => IO.pure(Table(headers, Nil, Nil))
     }
 
-  /** CSV-aware tab splitter. Single-pass; never backtracks. Respects
-    * `"..."` wrapping where a quoted cell may contain tabs, newlines,
-    * or escaped quotes (`""`).
-    */
+  /**
+   * CSV-aware tab splitter. Single-pass; never backtracks. Respects
+   * `"..."` wrapping where a quoted cell may contain tabs, newlines,
+   * or escaped quotes (`""`).
+   */
   private[common] def splitFields(line: String): List[String] = {
-    val out      = ListBuffer.empty[String]
-    val cur      = new StringBuilder
-    var i        = 0
+    val out = ListBuffer.empty[String]
+    val cur = new StringBuilder
+    var i = 0
     var inQuotes = false
-    val n        = line.length
+    val n = line.length
     while (i < n) {
       val c = line.charAt(i)
       if (inQuotes) {
@@ -172,29 +176,31 @@ object Tsv {
       "\"" + value.replace("\"", "\"\"") + "\""
     } else value
 
-  /** Render a Table as a stream of lines (comments, header, data).
-    * Used by [[write]]; kept separate so tests can assert on the
-    * serialized form without touching the filesystem.
-    */
+  /**
+   * Render a Table as a stream of lines (comments, header, data).
+   * Used by [[write]]; kept separate so tests can assert on the
+   * serialized form without touching the filesystem.
+   */
   def serialize(table: Table): Stream[IO, String] = {
     val commentLines = Stream.emits(table.comments)
-    val headerLine   = Stream.emit("# " + table.headers.mkString("\t"))
-    val dataLines    = Stream.emits(
+    val headerLine = Stream.emit("# " + table.headers.mkString("\t"))
+    val dataLines = Stream.emits(
       table.rows.map(row => table.headers.map(h => quote(row.getOrElse(h, ""))).mkString("\t"))
     )
     commentLines ++ headerLine ++ dataLines
   }
 
-  /** Atomic write: stream the Table's serialized form into a UUID-
-    * suffixed sibling temp file, then atomically rename into place. On
-    * filesystems that don't support `ATOMIC_MOVE`, falls back to plain
-    * replace.
-    *
-    * The UUID suffix is a defense-in-depth against parallel writers
-    * that have somehow ended up here without going through `modify` —
-    * each gets a private temp file so no two writers can collide on
-    * the same name.
-    */
+  /**
+   * Atomic write: stream the Table's serialized form into a UUID-
+   * suffixed sibling temp file, then atomically rename into place. On
+   * filesystems that don't support `ATOMIC_MOVE`, falls back to plain
+   * replace.
+   *
+   * The UUID suffix is a defense-in-depth against parallel writers
+   * that have somehow ended up here without going through `modify` —
+   * each gets a private temp file so no two writers can collide on
+   * the same name.
+   */
   // Monotonic counter for temp-file naming. Combined with nanoTime() it
   // gives a per-write unique suffix without depending on SecureRandom
   // (which Scala Native does not implement).
@@ -217,21 +223,22 @@ object Tsv {
 
   // -- In-process serialization ----------------------------------------------
 
-  /** Per-path mutex registry. Multiple `modify` calls on the same path
-    * within a single JVM serialize through a `Mutex[IO]` keyed by the
-    * absolute path. This is REQUIRED in addition to the OS file lock
-    * because Scala Native's `FileChannel.lock()` is process-level on
-    * many systems — within a single process, two `lock()` calls on the
-    * same file may both succeed immediately, leaving callers racing
-    * on the temp file and the move.
-    */
+  /**
+   * Per-path mutex registry. Multiple `modify` calls on the same path
+   * within a single JVM serialize through a `Mutex[IO]` keyed by the
+   * absolute path. This is REQUIRED in addition to the OS file lock
+   * because Scala Native's `FileChannel.lock()` is process-level on
+   * many systems — within a single process, two `lock()` calls on the
+   * same file may both succeed immediately, leaving callers racing
+   * on the temp file and the move.
+   */
   private val pathMutexes = new ConcurrentHashMap[String, Mutex[IO]]()
 
   private def mutexFor(path: Path): IO[Mutex[IO]] = {
     val key = path.absolute.toString
     IO.delay(Option(pathMutexes.get(key))).flatMap {
       case Some(m) => IO.pure(m)
-      case None    =>
+      case None =>
         Mutex[IO].flatMap { fresh =>
           IO.delay {
             val prior = pathMutexes.putIfAbsent(key, fresh)
@@ -243,37 +250,39 @@ object Tsv {
 
   // -- Cross-process locking -------------------------------------------------
 
-  /** Resource that acquires an exclusive file lock on `<path>.lock`.
-    * Release is guaranteed on normal completion, error, or
-    * cancellation — that's the whole point of using Resource.
-    *
-    * `channel.lock()` on Scala Native is a blocking `fcntl(F_SETLKW)`.
-    * It sleeps in-kernel without allocating per-retry exception
-    * objects, avoiding the Immix GC death spiral we hit in commit
-    * 0f08ac0 when we tried `tryLock` in a retry loop.
-    */
+  /**
+   * Resource that acquires an exclusive file lock on `<path>.lock`.
+   * Release is guaranteed on normal completion, error, or
+   * cancellation — that's the whole point of using Resource.
+   *
+   * `channel.lock()` on Scala Native is a blocking `fcntl(F_SETLKW)`.
+   * It sleeps in-kernel without allocating per-retry exception
+   * objects, avoiding the Immix GC death spiral we hit in commit
+   * 0f08ac0 when we tried `tryLock` in a retry loop.
+   */
   def lockFile(path: Path): Resource[IO, FileLock] = {
     val lockPath = new File(path.toString + ".lock")
     for {
-      _    <- Resource.eval(IO.blocking {
-                if (!lockPath.exists()) lockPath.createNewFile(): Unit
-              })
-      raf  <- Resource.fromAutoCloseable(IO.blocking(new RandomAccessFile(lockPath, "rw")))
-      ch   <- Resource.fromAutoCloseable(IO.delay(raf.getChannel: FileChannel))
+      _ <- Resource.eval(IO.blocking {
+        if (!lockPath.exists()) lockPath.createNewFile(): Unit
+      })
+      raf <- Resource.fromAutoCloseable(IO.blocking(new RandomAccessFile(lockPath, "rw")))
+      ch <- Resource.fromAutoCloseable(IO.delay(raf.getChannel: FileChannel))
       lock <- Resource.make(IO.blocking(ch.lock()))(l => IO.blocking(l.release()).attempt.void)
     } yield lock
   }
 
-  /** Cross-process locked load + mutate + save.
-    *
-    * Acquires an exclusive file lock, reads the current table (empty
-    * if the file doesn't exist yet), applies `fn`, writes atomically,
-    * releases the lock. The lock is held for the full load→mutate→save
-    * cycle so concurrent writers serialize cleanly without torn rows.
-    *
-    * Survived a 15-parallel writer race test in the legacy ssg-dev
-    * (commit `be18ed6`); that test migrates to `TsvSpec` in Phase 1.
-    */
+  /**
+   * Cross-process locked load + mutate + save.
+   *
+   * Acquires an exclusive file lock, reads the current table (empty
+   * if the file doesn't exist yet), applies `fn`, writes atomically,
+   * releases the lock. The lock is held for the full load→mutate→save
+   * cycle so concurrent writers serialize cleanly without torn rows.
+   *
+   * Survived a 15-parallel writer race test in the legacy ssg-dev
+   * (commit `be18ed6`); that test migrates to `TsvSpec` in Phase 1.
+   */
   def modify(path: Path)(fn: Table => Table): IO[Table] =
     modifyWith(path) { t =>
       val updated = fn(t)
@@ -283,24 +292,25 @@ object Tsv {
   def modify(file: File)(fn: Table => Table): IO[Table] =
     modify(Path.fromNioPath(file.toPath))(fn)
 
-  /** Like [[modify]] but the callback returns both the updated table
-    * AND a derived value that gets threaded back through the IO chain.
-    *
-    * Use this when you need to compute something inside the locked
-    * critical section and surface it to the caller — e.g.
-    * IssuesDb.add allocates the next ISS-NNN id inside the lock and
-    * returns it so the user sees what was assigned, without using
-    * unsafe side channels.
-    */
+  /**
+   * Like [[modify]] but the callback returns both the updated table
+   * AND a derived value that gets threaded back through the IO chain.
+   *
+   * Use this when you need to compute something inside the locked
+   * critical section and surface it to the caller — e.g.
+   * IssuesDb.add allocates the next ISS-NNN id inside the lock and
+   * returns it so the user sees what was assigned, without using
+   * unsafe side channels.
+   */
   def modifyWith[A](path: Path)(fn: Table => (Table, A)): IO[A] =
     mutexFor(path).flatMap { mutex =>
       mutex.lock.surround {
         lockFile(path).use { _ =>
           for {
             exists <- Files[IO].exists(path)
-            table  <- if (exists) read(path) else IO.pure(Table.empty)
-            result  = fn(table)
-            _      <- write(path, result._1)
+            table <- if (exists) read(path) else IO.pure(Table.empty)
+            result = fn(table)
+            _ <- write(path, result._1)
           } yield result._2
         }
       }

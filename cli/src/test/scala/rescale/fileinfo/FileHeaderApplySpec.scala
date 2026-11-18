@@ -24,7 +24,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
     new String(NIOFiles.readAllBytes(file.toPath))
 
   test("creates new key-value lines when none exist") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | * SPDX-License-Identifier: Apache-2.0
@@ -42,7 +43,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
   }
 
   test("updates existing key-value lines") {
-    val f = writeFile("b.scala",
+    val f = writeFile(
+      "b.scala",
       """/*
         | * Copyright 2026 acme
         | * original-src: lib/old.dart
@@ -61,7 +63,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
   }
 
   test("preserves Covenant-* prefix when updating covenant fields") {
-    val f = writeFile("c.scala",
+    val f = writeFile(
+      "c.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-loc: 100
@@ -80,7 +83,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
   }
 
   test("coexists with existing Covenant header") {
-    val f = writeFile("d.scala",
+    val f = writeFile(
+      "d.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -100,7 +104,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
   }
 
   test("round-trip: write then parse back") {
-    val f = writeFile("e.scala",
+    val f = writeFile(
+      "e.scala",
       """/*
         | * Copyright 2026 acme
         | */
@@ -123,7 +128,8 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
   }
 
   test("throws on file without block comment") {
-    val f = writeFile("f.scala",
+    val f = writeFile(
+      "f.scala",
       """package x
         |class Y
         |""".stripMargin
@@ -131,7 +137,7 @@ final class FileHeaderApplySpec extends CatsEffectSuite {
     FileHeaderApply.setProperties(f, Map("status" -> "ported"))
       .attempt
       .map {
-        case Left(e) => assert(e.getMessage.contains("No block comment"))
+        case Left(e)  => assert(e.getMessage.contains("No block comment"))
         case Right(_) => fail("expected exception")
       }
   }

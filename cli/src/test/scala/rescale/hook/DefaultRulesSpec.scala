@@ -48,7 +48,7 @@ final class DefaultRulesSpec extends FunSuite {
   test("bare sbt: deny with --client suggestion") {
     decide("sbt compile") match {
       case Decision.Deny(r) => assert(r.contains("--client"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -57,14 +57,14 @@ final class DefaultRulesSpec extends FunSuite {
   test("adb: deny") {
     decide("adb shell ls") match {
       case Decision.Deny(r) => assert(r.contains("adb"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("fastboot: deny") {
     decide("fastboot flash boot") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -73,21 +73,21 @@ final class DefaultRulesSpec extends FunSuite {
   test("rm without flags: deny") {
     decide("rm /tmp/foo") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("rm -rf: deny") {
     decide("rm -rf /tmp/foo") match {
       case Decision.Deny(r) => assert(r.contains("-r") || r.contains("Destructive"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("rm -f: deny") {
     decide("rm -f file") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -96,28 +96,28 @@ final class DefaultRulesSpec extends FunSuite {
   test("grep: deny → use Grep tool") {
     decide("grep foo bar.scala") match {
       case Decision.Deny(r) => assert(r.contains("Grep"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("rg: deny → use Grep tool") {
     decide("rg foo") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("find: deny → use Glob tool") {
     decide("find . -name '*.scala'") match {
       case Decision.Deny(r) => assert(r.contains("Glob"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("ls: deny → use Glob") {
     decide("ls -la") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -156,9 +156,8 @@ final class DefaultRulesSpec extends FunSuite {
     )
     cases.foreach { c =>
       decide(c) match {
-        case Decision.Deny(r) => assert(r.contains("pipe") || r.contains("Read") || r.contains("Grep"),
-          s"$c → '$r'")
-        case other => fail(s"$c → expected Deny, got $other")
+        case Decision.Deny(r) => assert(r.contains("pipe") || r.contains("Read") || r.contains("Grep"), s"$c → '$r'")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -175,7 +174,7 @@ final class DefaultRulesSpec extends FunSuite {
   test("echo with > redirect: deny → use Write/Edit") {
     decide("echo hello > foo.txt") match {
       case Decision.Deny(r) => assert(r.contains("Write") || r.contains("Edit"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -187,7 +186,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("sed -i s/x/y/ foo", "awk '{print}'", "perl -e 'print 1'").foreach { c =>
       decide(c) match {
         case Decision.Deny(r) => assert(r.contains("Edit"), s"$c → '$r'")
-        case other => fail(s"$c → expected Deny, got $other")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -198,7 +197,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("sort", "uniq -c", "cut -f 1", "tr A B", "xargs ls").foreach { c =>
       decide(c) match {
         case Decision.Deny(_) => // ok
-        case other => fail(s"$c → expected Deny, got $other")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -207,7 +206,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("python foo.py", "python3 -c 'print(1)'", "ruby -e '1'", "node script.js").foreach { c =>
       decide(c) match {
         case Decision.Deny(_) => // ok
-        case other => fail(s"$c → expected Deny, got $other")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -218,7 +217,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("kill 1234", "killall foo", "pkill bar").foreach { c =>
       decide(c) match {
         case Decision.Deny(_) => // ok
-        case other => fail(s"$c → expected Deny, got $other")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -228,7 +227,7 @@ final class DefaultRulesSpec extends FunSuite {
   test("curl -X POST: deny") {
     decide("curl -X POST https://example.com/api") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -241,7 +240,7 @@ final class DefaultRulesSpec extends FunSuite {
   test("curl downloading a .jar: ask") {
     decide("curl https://repo/foo.jar -o foo.jar") match {
       case Decision.Ask(r) => assert(r.contains("Downloading"), s"reason='$r'")
-      case other => fail(s"expected Ask, got $other")
+      case other           => fail(s"expected Ask, got $other")
     }
   }
 
@@ -262,14 +261,14 @@ final class DefaultRulesSpec extends FunSuite {
       "git clone https://github.com/foo/bar",
       "git merge feature",
       "git push origin main"
-    ).foreach { c => assertEquals(decide(c), Decision.Allow, c) }
+    ).foreach(c => assertEquals(decide(c), Decision.Allow, c))
   }
 
   test("git reset / restore / clean / rebase: deny") {
     List("git reset --hard", "git restore foo", "git clean -fd", "git rebase main").foreach { c =>
       decide(c) match {
         case Decision.Deny(_) => // ok
-        case other => fail(s"$c → expected Deny, got $other")
+        case other            => fail(s"$c → expected Deny, got $other")
       }
     }
   }
@@ -277,21 +276,21 @@ final class DefaultRulesSpec extends FunSuite {
   test("git commit --amend: deny") {
     decide("git commit --amend") match {
       case Decision.Deny(r) => assert(r.contains("amend"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("git push --force: deny") {
     decide("git push --force") match {
       case Decision.Deny(r) => assert(r.contains("Force"), s"reason='$r'")
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
   test("git branch -D: deny") {
     decide("git branch -D feature") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 
@@ -316,7 +315,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("gh pr create --title foo", "gh pr merge 1", "gh pr close 1").foreach { c =>
       decide(c) match {
         case Decision.Ask(_) => // ok
-        case other => fail(s"$c → expected Ask, got $other")
+        case other           => fail(s"$c → expected Ask, got $other")
       }
     }
   }
@@ -325,7 +324,7 @@ final class DefaultRulesSpec extends FunSuite {
     List("gh issue create --title foo", "gh issue close 1").foreach { c =>
       decide(c) match {
         case Decision.Ask(_) => // ok
-        case other => fail(s"$c → expected Ask, got $other")
+        case other           => fail(s"$c → expected Ask, got $other")
       }
     }
   }
@@ -345,7 +344,7 @@ final class DefaultRulesSpec extends FunSuite {
       "cp a b",
       "chmod +x foo",
       "sleep 1"
-    ).foreach { c => assertEquals(decide(c), Decision.Allow, c) }
+    ).foreach(c => assertEquals(decide(c), Decision.Allow, c))
   }
 
   // -- Phase 10 backports: safety rails from sge/main ssg ------------
@@ -426,7 +425,7 @@ final class DefaultRulesSpec extends FunSuite {
   test("dangerous pipeline: deny wins") {
     decide("re-scale db audit list && rm -rf /tmp/foo") match {
       case Decision.Deny(_) => // ok
-      case other => fail(s"expected Deny, got $other")
+      case other            => fail(s"expected Deny, got $other")
     }
   }
 }

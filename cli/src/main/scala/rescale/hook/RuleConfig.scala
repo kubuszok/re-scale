@@ -61,53 +61,57 @@ object RuleConfig {
   /** Top-level YAML document shape. */
   final case class YamlRuleSet(rules: List[YamlRule] = Nil) derives KindlingsYamlCodec
 
-  /** A single rule entry. `nested` mirrors the optional sub-rule list
-    * the legacy plan supported (gate-then-dispatch).
-    */
+  /**
+   * A single rule entry. `nested` mirrors the optional sub-rule list
+   * the legacy plan supported (gate-then-dispatch).
+   */
   final case class YamlRule(
-    `when`:  YamlCondition,
-    action:  Option[String]   = None, // "allow" | "ask" | "deny" | "pass"
-    reason:  Option[String]   = None,
-    nested:  Option[List[YamlRule]] = None
+    `when`: YamlCondition,
+    action: Option[String] = None, // "allow" | "ask" | "deny" | "pass"
+    reason: Option[String] = None,
+    nested: Option[List[YamlRule]] = None
   ) derives KindlingsYamlCodec
 
-  /** Flat polymorphic condition. Exactly ONE of the constructor fields
-    * should be non-empty per node. The decoder picks the first
-    * non-empty in declaration order.
-    */
-  /** YAML sub-model for the `ignoring` condition. Each entry in
-    * `flags` is `[flag, arity]` — flag name and how many subsequent
-    * args it consumes (0 for bare flags, 1 for `-C <path>`).
-    */
+  /**
+   * Flat polymorphic condition. Exactly ONE of the constructor fields
+   * should be non-empty per node. The decoder picks the first
+   * non-empty in declaration order.
+   */
+  /**
+   * YAML sub-model for the `ignoring` condition. Each entry in
+   * `flags` is `[flag, arity]` — flag name and how many subsequent
+   * args it consumes (0 for bare flags, 1 for `-C <path>`).
+   */
   final case class YamlIgnoring(
     flags: List[List[String]],
     `when`: YamlCondition
   ) derives KindlingsYamlCodec
 
   final case class YamlCondition(
-    `starts-with`:                Option[List[String]] = None,
-    `has-any`:                    Option[List[String]] = None,
-    `has-all`:                    Option[List[String]] = None,
-    `has-any-suffix`:             Option[List[String]] = None,
-    `has-any-contains`:           Option[List[String]] = None,
-    `has-redirect`:               Option[String]       = None,
+    `starts-with`: Option[List[String]] = None,
+    `has-any`: Option[List[String]] = None,
+    `has-all`: Option[List[String]] = None,
+    `has-any-suffix`: Option[List[String]] = None,
+    `has-any-contains`: Option[List[String]] = None,
+    `has-redirect`: Option[String] = None,
     `has-redirect-target-prefix`: Option[List[String]] = None,
-    `program-in`:                 Option[List[String]] = None,
-    `and`:                        Option[List[YamlCondition]] = None,
-    `or`:                         Option[List[YamlCondition]] = None,
-    `not`:                        Option[YamlCondition]       = None,
-    `followed-by`:                Option[YamlCondition]       = None,
-    `preceded-by`:                Option[YamlCondition]       = None,
-    `ignoring`:                   Option[YamlIgnoring]        = None
+    `program-in`: Option[List[String]] = None,
+    `and`: Option[List[YamlCondition]] = None,
+    `or`: Option[List[YamlCondition]] = None,
+    `not`: Option[YamlCondition] = None,
+    `followed-by`: Option[YamlCondition] = None,
+    `preceded-by`: Option[YamlCondition] = None,
+    `ignoring`: Option[YamlIgnoring] = None
   ) derives KindlingsYamlCodec
 
   // -- Public API ---------------------------------------------------
 
-  /** Load and merge per-project rule overrides from
-    * `.rescale/claude-hooks.yaml`. The file is optional — when missing,
-    * the returned `RuleSet` is exactly `DefaultRules.ruleSet`.
-    */
-  def loadAndMerge(configFile: File, defaults: RuleSet = DefaultRules.ruleSet): Either[String, RuleSet] = {
+  /**
+   * Load and merge per-project rule overrides from
+   * `.rescale/claude-hooks.yaml`. The file is optional — when missing,
+   * the returned `RuleSet` is exactly `DefaultRules.ruleSet`.
+   */
+  def loadAndMerge(configFile: File, defaults: RuleSet = DefaultRules.ruleSet): Either[String, RuleSet] =
     if (!configFile.exists()) Right(defaults)
     else {
       val src = Source.fromFile(configFile)
@@ -119,15 +123,15 @@ object RuleConfig {
         RuleSet(overrides.rules ++ defaults.rules)
       }
     }
-  }
 
-  /** Parse a YAML string into a typed RuleSet. Pure — no IO.
-    * Returns Left(error) if the YAML is malformed or contains an
-    * invalid condition / decision.
-    */
-  def parse(yamlText: String): Either[String, RuleSet] = {
+  /**
+   * Parse a YAML string into a typed RuleSet. Pure — no IO.
+   * Returns Left(error) if the YAML is malformed or contains an
+   * invalid condition / decision.
+   */
+  def parse(yamlText: String): Either[String, RuleSet] =
     yamlText.as[YamlRuleSet] match {
-      case Left(err)  => Left(s"YAML parse error: $err")
+      case Left(err) => Left(s"YAML parse error: $err")
       case Right(doc) =>
         val converted = doc.rules.map(toRuleEntry)
         converted.partitionMap(identity) match {
@@ -135,29 +139,28 @@ object RuleConfig {
           case (errs, _) => Left(errs.mkString("; "))
         }
     }
-  }
 
   /** Convert a YamlRule into the internal RuleEntry. */
-  private[hook] def toRuleEntry(y: YamlRule): Either[String, RuleEntry] = {
+  private[hook] def toRuleEntry(y: YamlRule): Either[String, RuleEntry] =
     for {
-      cond     <- toCondition(y.`when`)
-      action   <- toDecisionOpt(y.action, y.reason)
-      nested   <- y.nested.getOrElse(Nil).map(toRuleEntry).partitionMap(identity) match {
-                    case (Nil, ok) => Right(ok)
-                    case (errs, _) => Left(errs.mkString("; "))
-                  }
+      cond <- toCondition(y.`when`)
+      action <- toDecisionOpt(y.action, y.reason)
+      nested <- y.nested.getOrElse(Nil).map(toRuleEntry).partitionMap(identity) match {
+        case (Nil, ok) => Right(ok)
+        case (errs, _) => Left(errs.mkString("; "))
+      }
     } yield RuleEntry(when = cond, action = action, nested = nested)
-  }
 
-  /** Map the optional `action` + `reason` strings to a Decision.
-    *
-    * Note on the `allow` mapping: when an `allow` rule carries a non-empty
-    * reason, we map it to `Decision.Pass(reason)` instead of bare
-    * `Decision.Allow`. Both render to `permissionDecision=allow` in the
-    * Claude Code response, but `Pass` preserves the user-provided reason
-    * in `permissionDecisionReason` so the override is visible.
-    */
-  private[hook] def toDecisionOpt(action: Option[String], reason: Option[String]): Either[String, Option[Decision]] = {
+  /**
+   * Map the optional `action` + `reason` strings to a Decision.
+   *
+   * Note on the `allow` mapping: when an `allow` rule carries a non-empty
+   * reason, we map it to `Decision.Pass(reason)` instead of bare
+   * `Decision.Allow`. Both render to `permissionDecision=allow` in the
+   * Claude Code response, but `Pass` preserves the user-provided reason
+   * in `permissionDecisionReason` so the override is visible.
+   */
+  private[hook] def toDecisionOpt(action: Option[String], reason: Option[String]): Either[String, Option[Decision]] =
     action match {
       case None => Right(None)
       case Some(name) =>
@@ -170,28 +173,28 @@ object RuleConfig {
           case other   => Left(s"Unknown action: '$other' (expected allow/pass/ask/deny)")
         }
     }
-  }
 
-  /** Convert YamlCondition (one-of-many flat fields) to the internal Condition.
-    * Picks the FIRST non-empty field; rejects nodes with zero or
-    * multiple non-empty fields.
-    */
+  /**
+   * Convert YamlCondition (one-of-many flat fields) to the internal Condition.
+   * Picks the FIRST non-empty field; rejects nodes with zero or
+   * multiple non-empty fields.
+   */
   private[hook] def toCondition(y: YamlCondition): Either[String, C] = {
     val branches: List[(String, Either[String, C])] = List(
-      "starts-with"                -> y.`starts-with`.map(p => Right(C.StartsWith(p))),
-      "has-any"                    -> y.`has-any`.map(v => Right(C.HasAny(v))),
-      "has-all"                    -> y.`has-all`.map(v => Right(C.HasAll(v))),
-      "has-any-suffix"             -> y.`has-any-suffix`.map(v => Right(C.HasAnySuffix(v))),
-      "has-any-contains"           -> y.`has-any-contains`.map(v => Right(C.HasAnyContains(v))),
-      "has-redirect"               -> y.`has-redirect`.map(op => Right(C.HasRedirect(op))),
+      "starts-with" -> y.`starts-with`.map(p => Right(C.StartsWith(p))),
+      "has-any" -> y.`has-any`.map(v => Right(C.HasAny(v))),
+      "has-all" -> y.`has-all`.map(v => Right(C.HasAll(v))),
+      "has-any-suffix" -> y.`has-any-suffix`.map(v => Right(C.HasAnySuffix(v))),
+      "has-any-contains" -> y.`has-any-contains`.map(v => Right(C.HasAnyContains(v))),
+      "has-redirect" -> y.`has-redirect`.map(op => Right(C.HasRedirect(op))),
       "has-redirect-target-prefix" -> y.`has-redirect-target-prefix`.map(p => Right(C.HasRedirectTargetPrefix(p))),
-      "program-in"                 -> y.`program-in`.map(p => Right(C.ProgramIn(p))),
-      "and"                        -> y.`and`.map(cs => sequence(cs.map(toCondition)).map(C.And(_))),
-      "or"                         -> y.`or`.map(cs => sequence(cs.map(toCondition)).map(C.Or(_))),
-      "not"                        -> y.`not`.map(c => toCondition(c).map(C.Not(_))),
-      "followed-by"                -> y.`followed-by`.map(c => toCondition(c).map(C.FollowedBy(_))),
-      "preceded-by"                -> y.`preceded-by`.map(c => toCondition(c).map(C.PrecededBy(_))),
-      "ignoring"                   -> y.`ignoring`.map { ig =>
+      "program-in" -> y.`program-in`.map(p => Right(C.ProgramIn(p))),
+      "and" -> y.`and`.map(cs => sequence(cs.map(toCondition)).map(C.And(_))),
+      "or" -> y.`or`.map(cs => sequence(cs.map(toCondition)).map(C.Or(_))),
+      "not" -> y.`not`.map(c => toCondition(c).map(C.Not(_))),
+      "followed-by" -> y.`followed-by`.map(c => toCondition(c).map(C.FollowedBy(_))),
+      "preceded-by" -> y.`preceded-by`.map(c => toCondition(c).map(C.PrecededBy(_))),
+      "ignoring" -> y.`ignoring`.map { ig =>
         val flags = ig.flags.map {
           case flag :: arity :: Nil =>
             arity.toIntOption match {
@@ -209,7 +212,7 @@ object RuleConfig {
     branches match {
       case Nil           => Left("Empty when: clause — every rule needs at least one condition")
       case (_, r) :: Nil => r
-      case multi         => Left(s"Multiple when: branches set (${multi.map(_._1).mkString(", ")}) — pick exactly one per node")
+      case multi => Left(s"Multiple when: branches set (${multi.map(_._1).mkString(", ")}) — pick exactly one per node")
     }
   }
 

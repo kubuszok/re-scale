@@ -43,20 +43,22 @@ object Proc {
     def ok: Boolean = exitCode == 0
   }
 
-  /** Per-line sink for [[runStreamed]]. Callbacks fire on the
-    * sys.process reader threads; implementations that share state
-    * between stdout and stderr **must** synchronize that state
-    * themselves.
-    */
+  /**
+   * Per-line sink for [[runStreamed]]. Callbacks fire on the
+   * sys.process reader threads; implementations that share state
+   * between stdout and stderr **must** synchronize that state
+   * themselves.
+   */
   trait LineSink {
     def onOut(line: String): Unit
     def onErr(line: String): Unit
   }
 
-  /** Resolve a bare command name against `$PATH`. Absolute paths and
-    * paths containing `/` are returned as-is.
-    */
-  private def resolveCmd(cmd: String): String = {
+  /**
+   * Resolve a bare command name against `$PATH`. Absolute paths and
+   * paths containing `/` are returned as-is.
+   */
+  private def resolveCmd(cmd: String): String =
     if (cmd.startsWith("/") || cmd.contains("/")) cmd
     else {
       val path = sys.env.getOrElse("PATH", "")
@@ -65,19 +67,19 @@ object Proc {
       }.find(f => f.isFile && f.canExecute)
       found.map(_.getAbsolutePath).getOrElse(cmd)
     }
-  }
 
-  /** Run a subprocess and capture stdout + stderr. Returns once the
-    * subprocess exits.
-    */
+  /**
+   * Run a subprocess and capture stdout + stderr. Returns once the
+   * subprocess exits.
+   */
   def run(
-    cmd:  String,
-    args: List[String]      = Nil,
-    cwd:  Option[File]      = None,
-    env:  Map[String, String] = Map.empty
+    cmd: String,
+    args: List[String] = Nil,
+    cwd: Option[File] = None,
+    env: Map[String, String] = Map.empty
   ): IO[Result] =
     IO.blocking {
-      val cmdList   = resolveCmd(cmd) :: args
+      val cmdList = resolveCmd(cmd) :: args
       val stdoutBuf = new StringBuilder
       val stderrBuf = new StringBuilder
       val logger = ProcessLogger(
@@ -94,26 +96,27 @@ object Proc {
       Result(exit, stdoutBuf.toString.stripTrailing, stderrBuf.toString.stripTrailing)
     }
 
-  /** Run a subprocess, feeding each stdout/stderr line to `sink` as it
-    * arrives. Nothing is buffered inside Proc itself — the in-process
-    * footprint is whatever the sink chooses to retain.
-    *
-    * THIS is the primitive to use whenever the subprocess can produce
-    * more than a few KB of output. sass-spec, Jest, `sbt compile` on a
-    * large module, and similar verbose runners all fall in this
-    * category — using [[run]] on them retains the full transcript in
-    * memory and was the direct cause of the sass-spec 48 GB incident.
-    */
+  /**
+   * Run a subprocess, feeding each stdout/stderr line to `sink` as it
+   * arrives. Nothing is buffered inside Proc itself — the in-process
+   * footprint is whatever the sink chooses to retain.
+   *
+   * THIS is the primitive to use whenever the subprocess can produce
+   * more than a few KB of output. sass-spec, Jest, `sbt compile` on a
+   * large module, and similar verbose runners all fall in this
+   * category — using [[run]] on them retains the full transcript in
+   * memory and was the direct cause of the sass-spec 48 GB incident.
+   */
   def runStreamed(
-    cmd:  String,
-    args: List[String]       = Nil,
-    cwd:  Option[File]       = None,
-    env:  Map[String, String] = Map.empty,
+    cmd: String,
+    args: List[String] = Nil,
+    cwd: Option[File] = None,
+    env: Map[String, String] = Map.empty,
     sink: LineSink
   ): IO[Int] =
     IO.blocking {
       val cmdList = resolveCmd(cmd) :: args
-      val logger  = ProcessLogger(line => sink.onOut(line), line => sink.onErr(line))
+      val logger = ProcessLogger(line => sink.onOut(line), line => sink.onErr(line))
       try Process(cmdList, cwd, env.toSeq*).!(logger)
       catch {
         case e: java.io.IOException =>
@@ -122,18 +125,19 @@ object Proc {
       }
     }
 
-  /** Run a subprocess with stdout/stderr inherited from the parent
-    * terminal. Returns the exit code only.
-    *
-    * Use this for interactive commands like `sbt --client compile`
-    * where the user wants to see live output instead of a captured
-    * post-mortem.
-    */
+  /**
+   * Run a subprocess with stdout/stderr inherited from the parent
+   * terminal. Returns the exit code only.
+   *
+   * Use this for interactive commands like `sbt --client compile`
+   * where the user wants to see live output instead of a captured
+   * post-mortem.
+   */
   def exec(
-    cmd:  String,
-    args: List[String]       = Nil,
-    cwd:  Option[File]       = None,
-    env:  Map[String, String] = Map.empty
+    cmd: String,
+    args: List[String] = Nil,
+    cwd: Option[File] = None,
+    env: Map[String, String] = Map.empty
   ): IO[Int] =
     IO.blocking {
       val cmdList = resolveCmd(cmd) :: args

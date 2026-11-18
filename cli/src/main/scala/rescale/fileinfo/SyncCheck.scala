@@ -19,27 +19,27 @@ import java.io.File
 object SyncCheck {
 
   final case class Mismatch(
-    filePath:  String,
-    kind:      String,
-    dbValue:   String,
+    filePath: String,
+    kind: String,
+    dbValue: String,
     fileValue: String
   )
 
   def check(
-    root:   File,
-    files:  Stream[IO, Path],
-    pred:   Option[Predicate.Expr],
-    mr:     Boolean
+    root: File,
+    files: Stream[IO, Path],
+    pred: Option[Predicate.Expr],
+    mr: Boolean
   ): IO[ExitCode] = {
     val migFile = Paths.migrationTsv(root)
     for {
       migExists <- IO.blocking(migFile.exists())
-      migTable  <- if (migExists) Tsv.read(migFile) else IO.pure(Tsv.Table.empty)
+      migTable <- if (migExists) Tsv.read(migFile) else IO.pure(Tsv.Table.empty)
       fileProps <- files
-                     .evalMap(p => FileHeader.parse(p).map(fp => (p, fp)))
-                     .filter { case (_, fp) => pred.forall(Predicate.evaluate(_, fp.properties)) }
-                     .compile
-                     .toList
+        .evalMap(p => FileHeader.parse(p).map(fp => (p, fp)))
+        .filter { case (_, fp) => pred.forall(Predicate.evaluate(_, fp.properties)) }
+        .compile
+        .toList
       mismatches = findMismatches(root, migTable, fileProps)
       _ <- IO {
         if (mismatches.isEmpty) {
@@ -65,8 +65,8 @@ object SyncCheck {
   }
 
   private def findMismatches(
-    root:      File,
-    migTable:  Tsv.Table,
+    root: File,
+    migTable: Tsv.Table,
     fileProps: List[(Path, FileHeader.FileProperties)]
   ): List[Mismatch] = {
     val dbByPortPath = migTable.rows.flatMap { row =>
@@ -96,12 +96,12 @@ object SyncCheck {
           case None =>
             mismatches += Mismatch(relPath, "in-file-not-in-db", "", src)
           case Some(row) =>
-            val dbCommit   = row.getOrElse("source_sync_commit", "")
+            val dbCommit = row.getOrElse("source_sync_commit", "")
             val fileCommit = fp.properties.getOrElse("upstream-commit", "")
             if (dbCommit.nonEmpty && fileCommit.nonEmpty && dbCommit != fileCommit) {
               mismatches += Mismatch(relPath, "commit-mismatch", dbCommit, fileCommit)
             }
-            val dbStatus   = row.getOrElse("status", "")
+            val dbStatus = row.getOrElse("status", "")
             val fileStatus = fp.properties.getOrElse("status", "")
             if (dbStatus.nonEmpty && fileStatus.nonEmpty && dbStatus != fileStatus) {
               mismatches += Mismatch(relPath, "status-mismatch", dbStatus, fileStatus)

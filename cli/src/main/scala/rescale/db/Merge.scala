@@ -46,7 +46,7 @@ object Merge {
     case Migration
   }
 
-  def run(args: List[String]): IO[ExitCode] = {
+  def run(args: List[String]): IO[ExitCode] =
     args match {
       case Nil | "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
@@ -65,7 +65,6 @@ object Merge {
               .as(ExitCode.Error)
         }
     }
-  }
 
   def mergeFiles(target: File, source: File, strategy: Strategy): IO[ExitCode] = {
     if (!source.exists()) {
@@ -74,25 +73,26 @@ object Merge {
     val kind = inferKind(target.getName)
     for {
       _ <- IO.blocking {
-             if (!target.exists()) target.createNewFile(): Unit
-           }
+        if (!target.exists()) target.createNewFile(): Unit
+      }
       _ <- Tsv.modify(target) { current =>
-             // Read source inside the lock too — read it inline since we
-             // already have the file lock on target. The source itself
-             // doesn't need locking; we're just reading.
-             val src = readSourceUnlocked(source)
-             merge(kind, current, src, strategy)
-           }
+        // Read source inside the lock too — read it inline since we
+        // already have the file lock on target. The source itself
+        // doesn't need locking; we're just reading.
+        val src = readSourceUnlocked(source)
+        merge(kind, current, src, strategy)
+      }
       _ <- IO(Term.ok(s"Merged $source → $target (strategy=${strategy})"))
     } yield ExitCode.Success
   }
 
   // -- merge core ------------------------------------------------------
 
-  /** Pure-function merge of two tables. Strategy + kind determine the
-    * key and conflict resolution. Comments and headers come from the
-    * target side; rows are reconciled.
-    */
+  /**
+   * Pure-function merge of two tables. Strategy + kind determine the
+   * key and conflict resolution. Comments and headers come from the
+   * target side; rows are reconciled.
+   */
   def merge(kind: Kind, target: Table, source: Table, strategy: Strategy): Table = {
     val keyFn: Map[String, String] => String = kind match {
       case Kind.Issues    => _.getOrElse("id", "")
@@ -112,10 +112,10 @@ object Merge {
 
   /** Generic key-based merge. */
   private def mergeByKey(
-    target:   Table,
-    source:   Table,
+    target: Table,
+    source: Table,
     strategy: Strategy,
-    keyFn:    Map[String, String] => String,
+    keyFn: Map[String, String] => String,
     conflict: (Map[String, String], Map[String, String]) => Map[String, String]
   ): Table = {
     val targetByKey = target.rows.map(r => keyFn(r) -> r).toMap
@@ -123,9 +123,9 @@ object Merge {
 
     val keysOnlyInSource = sourceByKey.keySet -- targetByKey.keySet
     val keysOnlyInTarget = targetByKey.keySet -- sourceByKey.keySet
-    val keysInBoth       = sourceByKey.keySet intersect targetByKey.keySet
+    val keysInBoth = sourceByKey.keySet intersect targetByKey.keySet
 
-    val merged: List[Map[String, String]] = (
+    val merged: List[Map[String, String]] =
       keysInBoth.toList.map { k =>
         val l = targetByKey(k)
         val r = sourceByKey(k)
@@ -138,21 +138,21 @@ object Merge {
       } ++
         keysOnlyInTarget.toList.map(targetByKey) ++
         keysOnlyInSource.toList.map(sourceByKey)
-    )
 
     target.copy(rows = merged.sortBy(keyFn))
   }
 
-  /** Issues merge: ID collisions trigger renumbering when strategy
-    * is Renumber. Source rows that collide get fresh IDs allocated
-    * past the highest existing target ID; their old IDs are recorded
-    * in `description` so the trail is preserved.
-    */
+  /**
+   * Issues merge: ID collisions trigger renumbering when strategy
+   * is Renumber. Source rows that collide get fresh IDs allocated
+   * past the highest existing target ID; their old IDs are recorded
+   * in `description` so the trail is preserved.
+   */
   private def mergeIssues(
-    target:   Table,
-    source:   Table,
+    target: Table,
+    source: Table,
     strategy: Strategy,
-    keyFn:    Map[String, String] => String
+    keyFn: Map[String, String] => String
   ): Table = {
     val targetIds = target.rows.flatMap(_.get("id")).filter(_.startsWith("ISS-")).toSet
     // Source rows that don't collide get kept at their original IDs.
@@ -221,19 +221,19 @@ object Merge {
             val idx = out.indexWhere(_.getOrElse("id", "") == srcId)
             if (idx >= 0) out.update(idx, rewriteCrossRefs(srcRow, renamesMap))
           case Strategy.Renumber | Strategy.Stricter =>
-            val newId    = renamesMap(srcId)
+            val newId = renamesMap(srcId)
             // Rewrite cross-refs in non-id text columns first…
             val rewritten = rewriteCrossRefs(srcRow, renamesMap)
             // …then build the [was $srcId] audit trail with the LITERAL
             // old id, NOT from the rewritten text (rewriteCrossRefs
             // would otherwise have turned `[was ISS-002]` into
             // `[was ISS-026]` and lost the audit trail).
-            val oldDesc   = srcRow.getOrElse("description", "")
+            val oldDesc = srcRow.getOrElse("description", "")
             val rewrittenOldDesc =
               if (renamesMap.isEmpty) oldDesc
               else rewriteString(oldDesc, renamesMap)
             val annotated = rewritten ++ Map(
-              "id"          -> newId,
+              "id" -> newId,
               "description" -> s"[was $srcId] $rewrittenOldDesc"
             )
             out += annotated
@@ -246,28 +246,30 @@ object Merge {
 
   // -- Cross-reference rewriting --------------------------------------
 
-  /** Pattern that matches `ISS-NNN` IDs (3+ digits) anywhere in a
-    * string. Used by `rewriteString` to substitute old → new in a
-    * single pass.
-    */
+  /**
+   * Pattern that matches `ISS-NNN` IDs (3+ digits) anywhere in a
+   * string. Used by `rewriteString` to substitute old → new in a
+   * single pass.
+   */
   private val IssueIdPattern: scala.util.matching.Regex = """ISS-\d{3,}""".r
 
-  /** Rewrite every ISS-NNN reference in `value` according to `renames`,
-    * in a SINGLE walk over the string.
-    *
-    * We can't use `Regex.replaceAllIn(text, m => fn(m))` here because
-    * it transitively requires `java.util.regex.Matcher.appendReplacement`
-    * + `appendTail`, neither of which is implemented in Scala Native's
-    * regex stdlib (yet). Instead we use `findAllMatchIn` (which IS
-    * supported) and manually splice the surviving + replacement chunks.
-    *
-    * The "single walk" property is important: a fold of `text.replace`
-    * over the renames map has a chain bug — if renames = {ISS-002 →
-    * ISS-026, ISS-026 → ISS-027}, the first replace turns ISS-002 →
-    * ISS-026, the second replace then turns that ISS-026 → ISS-027
-    * (wrong). The findAllMatchIn approach decides each match BEFORE
-    * the next is examined, so chains can't form.
-    */
+  /**
+   * Rewrite every ISS-NNN reference in `value` according to `renames`,
+   * in a SINGLE walk over the string.
+   *
+   * We can't use `Regex.replaceAllIn(text, m => fn(m))` here because
+   * it transitively requires `java.util.regex.Matcher.appendReplacement`
+   * + `appendTail`, neither of which is implemented in Scala Native's
+   * regex stdlib (yet). Instead we use `findAllMatchIn` (which IS
+   * supported) and manually splice the surviving + replacement chunks.
+   *
+   * The "single walk" property is important: a fold of `text.replace`
+   * over the renames map has a chain bug — if renames = {ISS-002 →
+   * ISS-026, ISS-026 → ISS-027}, the first replace turns ISS-002 →
+   * ISS-026, the second replace then turns that ISS-026 → ISS-027
+   * (wrong). The findAllMatchIn approach decides each match BEFORE
+   * the next is examined, so chains can't form.
+   */
   private[db] def rewriteString(value: String, renames: Map[String, String]): String = {
     if (renames.isEmpty) return value
     val matches = IssueIdPattern.findAllMatchIn(value).toList
@@ -288,22 +290,22 @@ object Merge {
     sb.toString
   }
 
-  /** Rewrite every text column in a row, leaving the `id` column
-    * untouched (the id column is set authoritatively by the merge
-    * loop, not via reference substitution).
-    */
-  private[db] def rewriteCrossRefs(row: Map[String, String], renames: Map[String, String]): Map[String, String] = {
+  /**
+   * Rewrite every text column in a row, leaving the `id` column
+   * untouched (the id column is set authoritatively by the merge
+   * loop, not via reference substitution).
+   */
+  private[db] def rewriteCrossRefs(row: Map[String, String], renames: Map[String, String]): Map[String, String] =
     if (renames.isEmpty) row
     else
       row.map {
         case ("id", v) => "id" -> v
         case (k, v)    => k -> rewriteString(v, renames)
       }
-  }
 
   /** Audit conflict resolver — picks the stricter status. */
   private def auditConflict(left: Map[String, String], right: Map[String, String]): Map[String, String] = {
-    val leftStatus  = left.getOrElse("status", "pass")
+    val leftStatus = left.getOrElse("status", "pass")
     val rightStatus = right.getOrElse("status", "pass")
     val rank: String => Int = {
       case "major_issues" => 3
@@ -318,10 +320,11 @@ object Merge {
   private def defaultConflict(left: Map[String, String], right: Map[String, String]): Map[String, String] =
     left
 
-  /** Read a source file synchronously. Used inside Tsv.modify so it
-    * runs while we already hold the target lock. Source is read-only;
-    * no lock needed for it.
-    */
+  /**
+   * Read a source file synchronously. Used inside Tsv.modify so it
+   * runs while we already hold the target lock. Source is read-only;
+   * no lock needed for it.
+   */
   private def readSourceUnlocked(source: File): Table = {
     import cats.effect.unsafe.IORuntime.global
     Tsv.read(source).unsafeRunSync()(using global)

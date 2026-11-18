@@ -132,8 +132,8 @@ final class RuleEvaluatorSpec extends FunSuite {
   test("Nested rules: outer when gates inner; inner deny wins") {
     val rs = RuleSet(List(
       RuleEntry(
-        when     = C.ProgramIn(List("gh")),
-        action   = Some(Decision.Allow),
+        when = C.ProgramIn(List("gh")),
+        action = Some(Decision.Allow),
         nested = List(
           RuleEntry(C.StartsWith(List("gh", "pr", "create")), Some(Decision.Deny("no PR create")))
         )
@@ -146,8 +146,8 @@ final class RuleEvaluatorSpec extends FunSuite {
   test("Nested rules: outer fallback applies when no inner matches") {
     val rs = RuleSet(List(
       RuleEntry(
-        when     = C.ProgramIn(List("gh")),
-        action   = None,
+        when = C.ProgramIn(List("gh")),
+        action = None,
         nested = List(
           RuleEntry(C.StartsWith(List("gh", "pr", "create")), Some(Decision.Deny("no")))
         ),

@@ -23,7 +23,7 @@ object DbCmd {
         // Try custom tables defined in .rescale/databases.yaml
         CustomDb.tryRun(tableName, rest).flatMap {
           case Some(code) => IO.pure(code)
-          case None       =>
+          case None =>
             IO(Term.err(s"Unknown db subcommand: $tableName")).as(ExitCode.Error)
         }
     }
