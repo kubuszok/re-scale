@@ -333,9 +333,10 @@ re-scale proc kill --pid 12345
 
 ## Memory invariant
 
-re-scale ships with a **mandatory wrapper script** that sets
-`SCALANATIVE_MAX_HEAP_SIZE=1G`. Direct invocation of the binary is
-unsupported. Combined with the streaming-first architecture
+The executable caps its Immix heap at 1 GiB: the cap is compiled in
+(`-DGC_MAXIMUM_HEAP_SIZE=1G`), and the `GC_MAXIMUM_HEAP_SIZE`
+environment variable overrides it. The JVM launcher installed as a
+fallback runs with `-Xmx1g`. Combined with the streaming-first architecture
 (`FileOps.streamLines` for every per-file walk; the StaleStubs
 two-pass design that bounds memory by suspect-comment count instead
 of identifier count; reusable `java.util.regex.Matcher` instances
@@ -359,14 +360,19 @@ the CLI binary, all 11 skills, and the PreToolUse hook:
 /plugin install re-scale@kubuszok-tools
 ```
 
-On the first session after install, the plugin's `SessionStart` hook
-automatically:
+On each session start, the plugin's `SessionStart` hook:
 
-1. Clones the re-scale repo to `~/.local/share/re-scale` (or
-   `$RESCALE_HOME` if set)
-2. Runs `sbt install` to build the Scala Native binary (~30 s first
-   time)
-3. Adds `re-scale/bin/` to `PATH` for the session
+1. uses a `re-scale` already on `PATH` if it is the version the plugin
+   pins;
+2. otherwise installs that version with [Coursier](https://get-coursier.io)
+   into `~/.local/share/re-scale/<version>/bin` (or
+   `$RESCALE_INSTALL_DIR`): the native executable for your OS and
+   architecture, or the JVM build where none is published;
+3. adds that directory to `PATH` for the session.
+
+It needs `cs` on `PATH`, and Java 17+ only for the JVM fallback. If
+anything fails it prints a warning and the session starts without
+re-scale. `RESCALE_REPOSITORY` points it at a Maven Central mirror.
 
 The `PreToolUse` hook delegates to `re-scale hook` — no manual
 `.claude/hooks/pre-tool-use.sh` setup needed.
@@ -376,9 +382,46 @@ To update after a re-scale release:
 /plugin marketplace update kubuszok-tools
 ```
 
-### Option 2: Manual clone
+### Option 2: Coursier
 
-If you prefer manual control:
+re-scale is published to Maven Central with a native executable for
+Linux and macOS on x86_64 and aarch64. With
+[Coursier](https://get-coursier.io/docs/cli-installation) installed:
+
+```bash
+V=0.2.0
+cs install --install-dir ~/.local/bin "re-scale:{\"dependencies\":[\"com.kubuszok:re-scale_native0.5_3:$V\"],\"repositories\":[\"central\"],\"launcherType\":\"prebuilt\",\"prebuilt\":\"https://repo1.maven.org/maven2/com/kubuszok/re-scale_native0.5_3/\${version}/re-scale_native0.5_3-\${version}-\${platform}.bin\"}"
+re-scale --version
+```
+
+`cs` fills in `${platform}` (`x86_64-pc-linux`, `aarch64-pc-linux`,
+`x86_64-apple-darwin`, `aarch64-apple-darwin`). On any other platform,
+install the JVM build instead (needs Java 17+; every call starts a JVM):
+
+```bash
+cs install --install-dir ~/.local/bin "re-scale:{\"dependencies\":[\"com.kubuszok:re-scale_3:$V\"],\"repositories\":[\"central\"],\"mainClass\":\"rescale.Main\",\"javaOptions\":[\"-Xmx1g\"]}"
+```
+
+### Option 3: Other harnesses, without Coursier
+
+The executable is a single file with no dependencies beyond the C
+library. Download it for your platform and put it on `PATH`:
+
+```bash
+V=0.2.0
+P=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-pc-linux, aarch64-pc-linux
+curl -fL -o ~/.local/bin/re-scale \
+  "https://repo1.maven.org/maven2/com/kubuszok/re-scale_native0.5_3/$V/re-scale_native0.5_3-$V-$P.bin"
+chmod +x ~/.local/bin/re-scale
+re-scale --version
+```
+
+Wire `re-scale hook` into the harness's pre-tool-use hook (see
+[Wire into Claude Code](#wire-into-claude-code) for the shape). The
+Linux executables need glibc 2.35 or newer, the macOS ones macOS 11 or
+newer.
+
+### Option 4: From source
 
 ```bash
 git clone https://github.com/kubuszok/re-scale.git
@@ -387,16 +430,8 @@ sbt install                    # builds .build/re-scale-bin
 export PATH="$PWD/bin:$PATH"   # add to shell rc
 ```
 
-The `bin/re-scale` wrapper auto-compiles on first run if the binary
-is missing. No separate install script needed.
-
-### Prerequisites
-
-Both options require:
-
-- **JDK 22+** (sbt + Scala Native compilation)
-- **sbt** (build tool)
-- **Clang / LLVM** (Scala Native linker)
+The `bin/re-scale` wrapper builds the binary on first run if it is
+missing. Building needs JDK 17+, sbt and Clang/LLVM.
 
 #### Included skills
 
@@ -470,7 +505,7 @@ evaluates the merged rule set, and emits a wrapped
 ## Architecture
 
 ```
-src/main/scala/rescale/
+cli/src/main/scala/rescale/  # built for Scala Native (shipped) and the JVM (fallback)
   Main.scala                 # IOApp dispatcher
   common/                    # Cli, Paths, Term, Tsv, FileOps, Proc
   hook/                      # BashParser, RuleEvaluator, DefaultRules,

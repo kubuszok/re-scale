@@ -1,56 +1,76 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # ─────────────────────────────────────────────────────────────
-# SessionStart hook: ensure re-scale CLI is on PATH
+# SessionStart hook: put the re-scale CLI on PATH.
 #
-# If re-scale is already on PATH, does nothing.
-# Otherwise: clones the repo (or finds an existing clone),
-# triggers a build if the binary is missing, and exports
-# the bin/ directory onto PATH for this session.
+# Uses a re-scale already on PATH at the pinned version; otherwise
+# installs it with Coursier (`cs`) from Maven Central into
+# $RESCALE_INSTALL_DIR (default ~/.local/share/re-scale/<version>/bin):
+# the native executable for this OS/architecture, or, where none is
+# published, a JVM launcher (needs Java 17+). Never blocks a session:
+# every failure is a warning on stderr and exit 0.
 # ─────────────────────────────────────────────────────────────
+set -uo pipefail
 
-RESCALE_VERSION="0.1.5"
+RESCALE_VERSION="0.2.0"
+INSTALL_DIR="${RESCALE_INSTALL_DIR:-$HOME/.local/share/re-scale/$RESCALE_VERSION/bin}"
+# A Maven Central mirror (or a local repository, file:///...) can replace Central.
+REPO="${RESCALE_REPOSITORY:-https://repo1.maven.org/maven2}"
 
-# Where to find / put the re-scale source tree.
-# Users can override with RESCALE_HOME env var.
-RESCALE_HOME="${RESCALE_HOME:-$HOME/.local/share/re-scale/$RESCALE_VERSION}"
+warn() { echo "[re-scale] WARNING: $*" >&2; }
 
-# Already available at the right version?
-if command -v re-scale >/dev/null 2>&1; then
-  FOUND_VERSION=$(re-scale --version 2>/dev/null | awk '{print $2}' || true)
-  if [ "$FOUND_VERSION" = "$RESCALE_VERSION" ]; then
-    exit 0
+version_of() { "$1" --version 2>/dev/null | awk '{print $2}'; }
+
+put_on_path() {
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$CLAUDE_ENV_FILE"
   fi
-  # Wrong version on PATH — fall through to prepend the correct one
+}
+
+# 1. Already on PATH at the pinned version (a manual install or a source checkout).
+if command -v re-scale >/dev/null 2>&1 && [ "$(version_of re-scale)" = "$RESCALE_VERSION" ]; then
+  exit 0
 fi
 
-# Clone if needed
-if [ ! -f "$RESCALE_HOME/build.sbt" ]; then
-  echo "[re-scale] First-time setup: cloning re-scale $RESCALE_VERSION..." >&2
-  git clone --depth 1 --branch "$RESCALE_VERSION" https://github.com/kubuszok/re-scale.git "$RESCALE_HOME" >&2 2>&1 || {
-    echo "[re-scale] WARNING: git clone failed — re-scale CLI will not be available." >&2
-    exit 0
-  }
+# 2. Installed by an earlier session.
+if [ -x "$INSTALL_DIR/re-scale" ] && [ "$(version_of "$INSTALL_DIR/re-scale")" = "$RESCALE_VERSION" ]; then
+  put_on_path
+  exit 0
 fi
 
-# Build if binary is missing
-BINARY="$RESCALE_HOME/.build/re-scale-bin"
-if [ ! -f "$BINARY" ]; then
-  echo "[re-scale] Building Scala Native binary (first time only — takes ~30s)..." >&2
-  if command -v sbt >/dev/null 2>&1; then
-    (cd "$RESCALE_HOME" && sbt install) >&2 2>&1 || {
-      echo "[re-scale] WARNING: sbt install failed — re-scale CLI will not be available." >&2
-      exit 0
-    }
-  else
-    echo "[re-scale] WARNING: sbt not on PATH — re-scale CLI will not be available." >&2
-    echo "[re-scale] Install sbt (brew install sbt) and restart the session." >&2
-    exit 0
-  fi
+# 3. Install with Coursier.
+CS="$(command -v cs || command -v coursier || true)"
+if [ -z "$CS" ]; then
+  warn "Coursier (cs) is not on PATH, so re-scale $RESCALE_VERSION cannot be installed."
+  warn "Install it from https://get-coursier.io/docs/cli-installation and restart the session."
+  exit 0
 fi
 
-# Add bin/ to PATH for this session
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export PATH=\"$RESCALE_HOME/bin:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+  warn "cannot create $INSTALL_DIR; re-scale will not be available."
+  exit 0
+}
+LOG="$INSTALL_DIR/../install.log"
+
+# The executable for this platform; ${version} and ${platform} are filled in by cs.
+NATIVE='{"dependencies":["com.kubuszok:re-scale_native0.5_3:'"$RESCALE_VERSION"'"],"repositories":["'"$REPO"'","central"],"launcherType":"prebuilt","prebuilt":"'"$REPO"'/com/kubuszok/re-scale_native0.5_3/${version}/re-scale_native0.5_3-${version}-${platform}.bin"}'
+# Fallback: a launcher running the JVM build, heap capped like the executable.
+JVM='{"dependencies":["com.kubuszok:re-scale_3:'"$RESCALE_VERSION"'"],"repositories":["'"$REPO"'","central"],"mainClass":"rescale.Main","javaOptions":["-Xmx1g"]}'
+
+# Installed AND runs here (an executable can download fine and still not start, e.g. on an older glibc).
+install_with() {
+  "$CS" install --install-dir "$INSTALL_DIR" --force "re-scale:$1" >> "$LOG" 2>&1 &&
+    [ "$(version_of "$INSTALL_DIR/re-scale")" = "$RESCALE_VERSION" ]
+}
+
+echo "[re-scale] Installing re-scale $RESCALE_VERSION with Coursier..." >&2
+: > "$LOG"
+if install_with "$NATIVE"; then
+  put_on_path
+elif command -v java >/dev/null 2>&1 && install_with "$JVM"; then
+  warn "no native re-scale for this platform; installed the JVM build (each hook call starts a JVM)."
+  put_on_path
+else
+  warn "installing re-scale $RESCALE_VERSION failed; re-scale will not be available. Log: $LOG"
+  grep -v -e '^[[:space:]]*at ' -e '^WARNING' "$LOG" 2>/dev/null | tail -n 3 | sed 's/^/[re-scale]   /' >&2
 fi
+exit 0
