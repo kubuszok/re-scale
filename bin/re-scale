@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# re-scale wrapper — self-locating, auto-compiling, heap-capped
+# re-scale wrapper for a source checkout — self-locating, auto-compiling
 #
 # This script:
 #   1. Finds the re-scale repo root relative to its own location
 #   2. Locates the compiled binary at .build/re-scale-bin
 #   3. If missing, triggers `sbt install` to build it
-#   4. Sets the Immix heap cap (SCALANATIVE_MAX_HEAP_SIZE=1G)
-#   5. Runs the binary, echoing the invocation on non-zero exit
+#   4. Runs the binary, echoing the invocation on non-zero exit
+#
+# The 1G Immix heap cap is compiled into the binary (GC_MAXIMUM_HEAP_SIZE
+# overrides it), so the binary is safe to run without this wrapper.
 #
 # Add this script's directory to PATH:
 #   export PATH="/path/to/re-scale/bin:$PATH"
@@ -44,11 +46,6 @@ if [ ! -f "$BINARY" ]; then
     exit 1
   fi
 fi
-
-# Heap cap — prevents runaway Immix allocation (the 48 GB incident)
-: "${SCALANATIVE_MIN_HEAP_SIZE:=16M}"
-: "${SCALANATIVE_MAX_HEAP_SIZE:=1G}"
-export SCALANATIVE_MIN_HEAP_SIZE SCALANATIVE_MAX_HEAP_SIZE
 
 # Opt-in memory trace
 if [ -n "${RESCALE_TRACE_MEMORY:-}" ] && [ -x /usr/bin/time ]; then

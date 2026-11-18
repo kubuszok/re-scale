@@ -58,7 +58,10 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
     if (sys.env.get("CI").contains("true")) 120.0 else 30.0
 
   private val reScaleWrapper: Path =
-    Path.of(System.getProperty("user.dir"), "target", "stage", "bin", "re-scale")
+    sys.env.get("RESCALE_STAGE_DIR") match {
+      case Some(dir) => Path.of(dir, "re-scale")
+      case None      => Path.of(System.getProperty("user.dir"), "target", "stage", "bin", "re-scale")
+    }
 
   private def assumeStaged(): Unit = {
     assume(

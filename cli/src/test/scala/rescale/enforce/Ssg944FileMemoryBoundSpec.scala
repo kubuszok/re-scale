@@ -72,7 +72,10 @@ final class Ssg944FileMemoryBoundSpec extends FunSuite {
   private val ssgRoot: Path = Paths.get("/Users/dev/Workspaces/GitHub/ssg")
 
   private val reScaleWrapper: Path =
-    Paths.get(System.getProperty("user.dir"), "target", "stage", "bin", "re-scale")
+    sys.env.get("RESCALE_STAGE_DIR") match {
+      case Some(dir) => Paths.get(dir, "re-scale")
+      case None      => Paths.get(System.getProperty("user.dir"), "target", "stage", "bin", "re-scale")
+    }
 
   private val budgetBytes: Long = 512L * 1024L * 1024L
 
