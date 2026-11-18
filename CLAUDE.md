@@ -20,14 +20,13 @@ The version comes from git tags (`git describe`); there is no version in the bui
 `git worktree`, sbt-git cannot read the repository and the version becomes a timestamp, which fails `VersionSpec`:
 run the tests from a regular clone when that matters.
 
+This repository holds only the CLI. The agent plugins (`re-scale-hooks`, `re-scale-porting`) live in
+`kubuszok/agent-skills`; their session-start hook pins the CLI version.
+
 ## Release checklist
 
-1. Bump the version in `.claude-plugin/marketplace.json` (`plugins[0].version`),
-   `plugins/re-scale/.claude-plugin/plugin.json` (`version`) and `plugins/re-scale/hooks/session-start.sh`
-   (`RESCALE_VERSION`), and in the consumers' hooks.
-2. Merge to master and wait for the snapshot publish of that push (`Sonatype Release`) to succeed.
-3. Tag the master commit with the bare version and push the tag: `git tag 0.2.0 && git push origin 0.2.0`.
+1. Merge to master and wait for the snapshot publish of that push (`Sonatype Release`) to succeed.
+2. Tag the master commit with the bare version and push the tag: `git tag 0.2.0 && git push origin 0.2.0`.
    The tag run links the four executables, attaches them to `re-scale_native0.5_3` and releases to Maven Central.
-
-The session-start hook installs the pinned version from Maven Central with `cs`, so the release must be on
-Central (allow ~30 minutes after the tag run) before users pick up the new plugin version.
+3. Once the release is on Central (allow ~30 minutes after the tag run), bump `RESCALE_VERSION` in both
+   plugins' `hooks/session-start.sh` in `kubuszok/agent-skills`, with the plugins' versions.
