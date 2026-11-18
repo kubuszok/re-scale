@@ -24,10 +24,12 @@ final class RunnerSpec extends CatsEffectSuite {
   test("simple echo runner: ok + capture from regex") {
     val runner = R(
       invoke = Invoke(command = "echo", args = Some(List("Total=42 Passing=37"))),
-      output = Some(OutputSpec(success = Some(Pattern(
-        regex   = """Total=(\d+)\s+Passing=(\d+)""",
-        capture = Map("total" -> 1, "passing" -> 2)
-      ))))
+      output = Some(OutputSpec(success =
+        Some(Pattern(
+          regex = """Total=(\d+)\s+Passing=(\d+)""",
+          capture = Map("total" -> 1, "passing" -> 2)
+        ))
+      ))
     )
     Runner.run(runner, mode = None, posArgs = Nil, projectRoot = tempDir()).map { o =>
       assert(o.ok, s"expected ok; outcome=$o")
@@ -42,10 +44,12 @@ final class RunnerSpec extends CatsEffectSuite {
         command = "sh",
         args = Some(List("-c", "echo regression-1 1>&2; echo unrelated 1>&2; exit 1"))
       ),
-      output = Some(OutputSpec(failure = Some(Failure(
-        `keep-lines-matching` = List("regression"),
-        `max-lines`           = 5
-      ))))
+      output = Some(OutputSpec(failure =
+        Some(Failure(
+          `keep-lines-matching` = List("regression"),
+          `max-lines` = 5
+        ))
+      ))
     )
     Runner.run(runner, mode = None, posArgs = Nil, projectRoot = tempDir()).map { o =>
       assert(!o.ok, s"expected failure; outcome=$o")
@@ -62,8 +66,8 @@ final class RunnerSpec extends CatsEffectSuite {
       `mode-file` = Some(ModeFile(path = modePath)),
       modes = Map(
         "regression" -> Map.empty,
-        "strict"     -> Map("strict" -> "1"),
-        "subdir"     -> Map("subdir" -> "$1")
+        "strict" -> Map("strict" -> "1"),
+        "subdir" -> Map("subdir" -> "$1")
       )
     )
     Runner.run(runner, mode = Some("strict"), posArgs = Nil, projectRoot = root).map { _ =>
@@ -118,10 +122,12 @@ final class RunnerSpec extends CatsEffectSuite {
         |""".stripMargin
     val runner = R(
       invoke = Invoke(command = "sh", args = Some(List("-c", script))),
-      output = Some(OutputSpec(failure = Some(Failure(
-        `keep-lines-matching` = List("FAIL"),
-        `max-lines`           = 5
-      ))))
+      output = Some(OutputSpec(failure =
+        Some(Failure(
+          `keep-lines-matching` = List("FAIL"),
+          `max-lines` = 5
+        ))
+      ))
     )
     Runner.run(runner, mode = None, posArgs = Nil, projectRoot = tempDir()).map { o =>
       assert(!o.ok, s"expected failure; outcome=$o")
@@ -142,9 +148,9 @@ final class RunnerSpec extends CatsEffectSuite {
       modes = Map("a" -> Map("a" -> "1"), "b" -> Map("b" -> "2"))
     )
     for {
-      _  <- Runner.run(runner, mode = Some("a"), posArgs = Nil, projectRoot = root)
-      _  <- Runner.run(runner, mode = Some("b"), posArgs = Nil, projectRoot = root)
-      _  =  {
+      _ <- Runner.run(runner, mode = Some("a"), posArgs = Nil, projectRoot = root)
+      _ <- Runner.run(runner, mode = Some("b"), posArgs = Nil, projectRoot = root)
+      _ = {
         val content = scala.io.Source.fromFile(new File(root, "mode.tsv")).mkString
         assert(content.contains("b=2"), s"content was: $content")
         assert(!content.contains("a=1"), s"stale a=1 leaked: $content")

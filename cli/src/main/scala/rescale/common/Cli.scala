@@ -7,22 +7,23 @@
  */
 package rescale.common
 
-/** Hand-rolled command-line argument parser. Splits a list of tokens
-  * into named flags (`--key value` or `--key=value`), boolean flags
-  * (`--key` with no value), and positional arguments.
-  *
-  * Intentionally minimal: no typed codecs, no subcommand routing. Each
-  * command dispatches on positionals and reads flags via the methods
-  * on `Args`.
-  */
+/**
+ * Hand-rolled command-line argument parser. Splits a list of tokens
+ * into named flags (`--key value` or `--key=value`), boolean flags
+ * (`--key` with no value), and positional arguments.
+ *
+ * Intentionally minimal: no typed codecs, no subcommand routing. Each
+ * command dispatches on positionals and reads flags via the methods
+ * on `Args`.
+ */
 object Cli {
 
   final case class Args(
-    flags:      Map[String, String],
+    flags: Map[String, String],
     positional: List[String]
   ) {
-    def flag(name: String): Option[String]                   = flags.get(name)
-    def hasFlag(name: String): Boolean                       = flags.contains(name)
+    def flag(name: String): Option[String] = flags.get(name)
+    def hasFlag(name: String): Boolean = flags.contains(name)
     def flagOrDefault(name: String, default: String): String = flags.getOrElse(name, default)
 
     def requirePositional(index: Int, name: String): String = {
@@ -37,19 +38,19 @@ object Cli {
   }
 
   def parse(args: List[String]): Args = {
-    val flags      = scala.collection.mutable.Map.empty[String, String]
+    val flags = scala.collection.mutable.Map.empty[String, String]
     val positional = scala.collection.mutable.ListBuffer.empty[String]
-    var remaining  = args
+    var remaining = args
     var pastDashes = false
 
-    while (remaining.nonEmpty) {
+    while (remaining.nonEmpty)
       remaining match {
         case "--" :: rest =>
           pastDashes = true
           remaining = rest
         case arg :: rest if !pastDashes && arg.startsWith("--") =>
           val keyVal = arg.drop(2)
-          val eqIdx  = keyVal.indexOf('=')
+          val eqIdx = keyVal.indexOf('=')
           if (eqIdx >= 0) {
             flags(keyVal.substring(0, eqIdx)) = keyVal.substring(eqIdx + 1)
             remaining = rest
@@ -66,7 +67,6 @@ object Cli {
         case Nil =>
           remaining = Nil
       }
-    }
     Args(flags.toMap, positional.toList)
   }
 }

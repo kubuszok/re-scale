@@ -63,12 +63,11 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
       case None      => Path.of(System.getProperty("user.dir"), "target", "stage", "bin", "re-scale")
     }
 
-  private def assumeStaged(): Unit = {
+  private def assumeStaged(): Unit =
     assume(
       Files.isExecutable(reScaleWrapper),
       s"re-scale wrapper not staged at $reScaleWrapper — run `sbt stage` first"
     )
-  }
 
   // -- Tests ---------------------------------------------------------
 
@@ -116,10 +115,11 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
     root
   }
 
-  /** Write one synthetic .scala file. ~50 KB of realistic-looking
-    * Scala with class/def/val declarations + a few stub markers
-    * sprinkled in so the scanners produce some hits.
-    */
+  /**
+   * Write one synthetic .scala file. ~50 KB of realistic-looking
+   * Scala with class/def/val declarations + a few stub markers
+   * sprinkled in so the scanners produce some hits.
+   */
   private def writeSyntheticFile(f: File, moduleName: String, idx: Int): Unit = {
     val w = new PrintWriter(f)
     try {
@@ -171,11 +171,11 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
 
   // -- Measurement helpers (cribbed from Ssg944FileMemoryBoundSpec) -
 
-  private final case class MeasureResult(
+  final private case class MeasureResult(
     maxRssBytes: Long,
     wallSeconds: Double,
-    exitCode:    Int,
-    stderrTail:  String
+    exitCode: Int,
+    stderrTail: String
   )
 
   private def runAndMeasure(cmd: List[String], cwd: File): MeasureResult = {
@@ -198,8 +198,8 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
     MeasureResult(
       maxRssBytes = maxRssBytes,
       wallSeconds = wallSeconds,
-      exitCode    = exit,
-      stderrTail  = stderrBuf.toString.takeRight(1024)
+      exitCode = exit,
+      stderrTail = stderrBuf.toString.takeRight(1024)
     )
   }
 
@@ -226,7 +226,7 @@ final class SyntheticMemoryBoundSpec extends FunSuite {
   }
 
   private def assertUnderBudget(r: MeasureResult, label: String): Unit = {
-    val rssMiB    = r.maxRssBytes.toDouble / (1024.0 * 1024.0)
+    val rssMiB = r.maxRssBytes.toDouble / (1024.0 * 1024.0)
     val budgetMiB = budgetBytes.toDouble / (1024.0 * 1024.0)
     val msg = f"$label: peak RSS $rssMiB%.1f MiB (budget $budgetMiB%.0f MiB), wall ${r.wallSeconds}%.1fs"
     println(s"  → $msg")

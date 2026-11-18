@@ -134,7 +134,7 @@ final class CovenantApplySpec extends CatsEffectSuite {
   test("created covenant can be parsed back by Covenant.parse") {
     val f = tempFile(sampleScala)
     for {
-      _      <- CovenantApply.apply(f, "src/foo.java", specPass = Some(100), force = true)
+      _ <- CovenantApply.apply(f, "src/foo.java", specPass = Some(100), force = true)
       parsed <- Covenant.parse(f)
     } yield {
       assert(parsed.isDefined, "Covenant.parse should find the header")
@@ -150,10 +150,8 @@ final class CovenantApplySpec extends CatsEffectSuite {
   test("created covenant passes Covenant.verify") {
     val f = tempFile(sampleScala)
     for {
-      _      <- CovenantApply.apply(f, "src/foo.java", force = true)
+      _ <- CovenantApply.apply(f, "src/foo.java", force = true)
       result <- Covenant.verify(f)
-    } yield {
-      assert(result.isRight, s"verify failed: $result")
-    }
+    } yield assert(result.isRight, s"verify failed: $result")
   }
 }

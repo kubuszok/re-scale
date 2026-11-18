@@ -30,44 +30,42 @@ object TestCmd {
     args match {
       case Nil | "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
-      case "unit" :: rest   => unit(Cli.parse(rest))
-      case "verify" :: _    => verify()
+      case "unit" :: rest => unit(Cli.parse(rest))
+      case "verify" :: _  => verify()
       case other :: _ =>
         IO(Term.err(s"Unknown test command: $other")).as(ExitCode.Error)
     }
 
   // -- unit ---------------------------------------------------------
 
-  def unit(args: Cli.Args): IO[ExitCode] = {
+  def unit(args: Cli.Args): IO[ExitCode] =
     for {
-      root    <- Paths.projectRoot
-      targets  = resolveTargets(root, args)
-      only     = args.flag("only")
-      cmds     = targets.map { t =>
-                   only match {
-                     case Some(suite) => s"$t/testOnly *$suite*"
-                     case None        => s"$t/test"
-                   }
-                 }
-      result  <- runSequential(root, cmds)
+      root <- Paths.projectRoot
+      targets = resolveTargets(root, args)
+      only = args.flag("only")
+      cmds = targets.map { t =>
+        only match {
+          case Some(suite) => s"$t/testOnly *$suite*"
+          case None        => s"$t/test"
+        }
+      }
+      result <- runSequential(root, cmds)
     } yield result
-  }
 
   // -- verify -------------------------------------------------------
 
-  def verify(): IO[ExitCode] = {
+  def verify(): IO[ExitCode] =
     for {
       root <- Paths.projectRoot
-      _    <- IO(Term.info("Verifying all modules on all platforms..."))
+      _ <- IO(Term.info("Verifying all modules on all platforms..."))
       modules = Paths.moduleNames(root)
       cmds = for {
-        m      <- modules
+        m <- modules
         suffix <- List("", "JS", "Native")
-        scope  <- List("compile", "Test/compile")
+        scope <- List("compile", "Test/compile")
       } yield s"$m$suffix/$scope"
       result <- runSequential(root, cmds)
     } yield result
-  }
 
   // -- helpers ------------------------------------------------------
 
@@ -77,10 +75,10 @@ object TestCmd {
         case Some(m) => List(m)
         case None    => Paths.moduleNames(root)
       }
-    val jvm    = args.hasFlag("jvm")
-    val js     = args.hasFlag("js")
+    val jvm = args.hasFlag("jvm")
+    val js = args.hasFlag("js")
     val native = args.hasFlag("native")
-    val all    = args.hasFlag("all") || (!jvm && !js && !native)
+    val all = args.hasFlag("all") || (!jvm && !js && !native)
 
     if (all) modules
     else
@@ -93,7 +91,7 @@ object TestCmd {
       }
   }
 
-  private def runSequential(root: File, cmds: List[String]): IO[ExitCode] = {
+  private def runSequential(root: File, cmds: List[String]): IO[ExitCode] =
     cmds.foldLeftM(ExitCode.Success) { (acc, cmd) =>
       acc match {
         case ExitCode.Success =>
@@ -103,7 +101,6 @@ object TestCmd {
           IO.pure(fail)
       }
     }
-  }
 
   private val usage: String =
     """Usage: re-scale test <command>

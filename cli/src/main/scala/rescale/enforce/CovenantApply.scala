@@ -25,36 +25,37 @@ import java.time.LocalDate
 object CovenantApply {
 
   final case class Result(
-    path:    String,
+    path: String,
     methods: List[String],
-    loc:     Int,
-    action:  String // "created", "updated", "dry-run", "refused"
+    loc: Int,
+    action: String // "created", "updated", "dry-run", "refused"
   )
 
-  /** Apply or update a Covenant header on a single file.
-    *
-    * @param file            the Scala file to stamp
-    * @param sourceReference the `Covenant-source-reference` value
-    *                        (e.g. `lib/src/environment.dart`)
-    * @param specPass        optional `Covenant-baseline-spec-pass` value
-    * @param covenant        covenant level (default `full-port`)
-    * @param dryRun          if true, report what would happen without writing
-    * @param force           if true, skip the shortcut pre-check
-    */
+  /**
+   * Apply or update a Covenant header on a single file.
+   *
+   * @param file            the Scala file to stamp
+   * @param sourceReference the `Covenant-source-reference` value
+   *                        (e.g. `lib/src/environment.dart`)
+   * @param specPass        optional `Covenant-baseline-spec-pass` value
+   * @param covenant        covenant level (default `full-port`)
+   * @param dryRun          if true, report what would happen without writing
+   * @param force           if true, skip the shortcut pre-check
+   */
   def apply(
-    file:            File,
+    file: File,
     sourceReference: String,
-    specPass:        Option[Int]  = None,
-    covenant:        String       = "full-port",
-    dryRun:          Boolean      = false,
-    force:           Boolean      = false
+    specPass: Option[Int] = None,
+    covenant: String = "full-port",
+    dryRun: Boolean = false,
+    force: Boolean = false
   ): IO[Result] = {
     val path = Path.fromNioPath(file.toPath)
     for {
       // Extract current method set + LOC
       methods <- Methods.extractScalaNames(path)
-      lines   <- FileOps.readAllLines(path)
-      loc      = lines.size
+      lines <- FileOps.readAllLines(path)
+      loc = lines.size
 
       // Pre-check: refuse to covenant a file with shortcut hits
       // unless --force is set.
@@ -62,7 +63,9 @@ object CovenantApply {
       result <- {
         if (shortcutHits.nonEmpty) {
           IO.pure(Result(
-            file.getPath, methods, loc,
+            file.getPath,
+            methods,
+            loc,
             s"refused — ${shortcutHits.size} shortcut hit(s): ${shortcutHits.take(3).map(h => s"${h.pattern}@${h.line}").mkString(", ")}"
           ))
         } else if (dryRun) {
@@ -76,19 +79,20 @@ object CovenantApply {
     } yield result
   }
 
-  /** Write or update the Covenant header in the file. Returns "created"
-    * or "updated" depending on whether fields already existed.
-    */
+  /**
+   * Write or update the Covenant header in the file. Returns "created"
+   * or "updated" depending on whether fields already existed.
+   */
   private def writeHeader(
-    file:            File,
-    lines:           Vector[String],
-    methods:         List[String],
-    loc:             Int,
+    file: File,
+    lines: Vector[String],
+    methods: List[String],
+    loc: Int,
     sourceReference: String,
-    specPass:        Option[Int],
-    covenant:        String
+    specPass: Option[Int],
+    covenant: String
   ): IO[String] = IO.blocking {
-    val today      = LocalDate.now().toString
+    val today = LocalDate.now().toString
     val methodsCsv = methods.sorted.mkString(",")
 
     val covenantLines = List(
@@ -102,7 +106,7 @@ object CovenantApply {
 
     // Find the header comment block boundaries.
     val headerStart = lines.indexWhere(_.trim.startsWith("/*"))
-    val headerEnd   = if (headerStart >= 0) {
+    val headerEnd = if (headerStart >= 0) {
       lines.indexWhere(l => l.trim == "*/" || l.trim.endsWith("*/"), headerStart)
     } else -1
 
@@ -121,7 +125,7 @@ object CovenantApply {
     val newLines: Vector[String] = if (existingRange.nonEmpty) {
       // UPDATE: replace the existing Covenant block with new values.
       val firstCov = existingRange.head
-      val lastCov  = existingRange.last
+      val lastCov = existingRange.last
       lines.take(firstCov) ++ covenantLines ++ lines.drop(lastCov + 1)
     } else {
       // CREATE: insert Covenant lines before the closing `*/`.
@@ -135,9 +139,9 @@ object CovenantApply {
     }
 
     val w = new PrintWriter(file)
-    try {
+    try
       newLines.foreach(w.println)
-    } finally w.close()
+    finally w.close()
 
     if (existingRange.nonEmpty) "updated" else "created"
   }

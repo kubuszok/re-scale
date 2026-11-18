@@ -32,7 +32,9 @@ final class StaleStubsSpec extends CatsEffectSuite {
 
   test("buildIndex collects def/val/class names + SCREAMING_SNAKE constants") {
     val dir = tempDir()
-    writeFile(dir, "A.scala",
+    writeFile(
+      dir,
+      "A.scala",
       """package x
         |object Parser {
         |  val REFERENCES = "ref"
@@ -54,7 +56,9 @@ final class StaleStubsSpec extends CatsEffectSuite {
 
   test("scanFile flags a 'not yet ported' comment when the identifier is in the index") {
     val dir = tempDir()
-    val mainFile = writeFile(dir, "Main.scala",
+    val mainFile = writeFile(
+      dir,
+      "Main.scala",
       """package x
         |object Main {
         |  def doStuff(): Int = {
@@ -73,7 +77,9 @@ final class StaleStubsSpec extends CatsEffectSuite {
 
   test("scanFile does NOT flag when the suspect identifier is unknown") {
     val dir = tempDir()
-    val f = writeFile(dir, "X.scala",
+    val f = writeFile(
+      dir,
+      "X.scala",
       """package x
         |object X {
         |  // SOMETHING_NOT_DEFINED is not yet ported
@@ -89,7 +95,9 @@ final class StaleStubsSpec extends CatsEffectSuite {
 
   test("ring buffer: identifier on adjacent line still triggers a hit") {
     val dir = tempDir()
-    val f = writeFile(dir, "M.scala",
+    val f = writeFile(
+      dir,
+      "M.scala",
       """package x
         |object M {
         |  // not yet ported

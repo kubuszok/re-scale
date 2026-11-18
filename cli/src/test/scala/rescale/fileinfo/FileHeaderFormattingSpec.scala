@@ -28,7 +28,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
 
   test("very long Covenant-baseline-methods line (1000+ chars)") {
     val methods = (1 to 200).map(i => s"method$i").mkString(",")
-    val f = writeFile("long.scala",
+    val f = writeFile(
+      "long.scala",
       s"""/*
          | * Copyright 2026 acme
          | * Covenant: full-port
@@ -46,7 +47,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt-wrapped comma-separated value is joined via continuation") {
-    val f = writeFile("wrapped.scala",
+    val f = writeFile(
+      "wrapped.scala",
       """/*
         | * Copyright 2026 acme
         | * Covenant: full-port
@@ -65,7 +67,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt-wrapped value across three lines") {
-    val f = writeFile("wrap3.scala",
+    val f = writeFile(
+      "wrap3.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-methods: alpha,beta,gamma,
@@ -83,7 +86,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt-wrapped text value is joined with space") {
-    val f = writeFile("wraptext.scala",
+    val f = writeFile(
+      "wraptext.scala",
       """/*
         | * notes: This is a very long note about the migration
         | *   process that spans multiple lines
@@ -93,14 +97,17 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
         |""".stripMargin
     )
     FileHeader.parse(f).map { fp =>
-      assertEquals(fp.properties("notes"),
-        "This is a very long note about the migration process that spans multiple lines")
+      assertEquals(
+        fp.properties("notes"),
+        "This is a very long note about the migration process that spans multiple lines"
+      )
       assertEquals(fp.properties("covenant"), "full-port")
     }
   }
 
   test("blank * line between fields stops continuation") {
-    val f = writeFile("blanksep.scala",
+    val f = writeFile(
+      "blanksep.scala",
       """/*
         | * Covenant-baseline-methods: alpha,beta,gamma,
         | *
@@ -118,7 +125,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("non-indented line after key-value is NOT continuation") {
-    val f = writeFile("nocont.scala",
+    val f = writeFile(
+      "nocont.scala",
       """/*
         | * Covenant: full-port
         | * This is just a regular comment line
@@ -135,7 +143,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt-wrapped key name is not recognized") {
-    val f = writeFile("broken-key.scala",
+    val f = writeFile(
+      "broken-key.scala",
       """/*
         | * Copyright 2026 acme
         | * Covenant-baseline-
@@ -158,7 +167,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- whitespace variations --------------------------------------------
 
   test("extra whitespace around colon") {
-    val f = writeFile("spaces.scala",
+    val f = writeFile(
+      "spaces.scala",
       """/*
         | * Covenant :  full-port
         | * Covenant-baseline-loc  :  1153
@@ -175,9 +185,7 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("tab characters in value") {
-    val f = writeFile("tabs.scala",
-      s"/*\n * Covenant: full-port\n * status:\tported\n */\npackage x\n"
-    )
+    val f = writeFile("tabs.scala", s"/*\n * Covenant: full-port\n * status:\tported\n */\npackage x\n")
     FileHeader.parse(f).map { fp =>
       assertEquals(fp.properties("covenant"), "full-port")
       assertEquals(fp.properties("status"), "ported")
@@ -185,7 +193,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("no space after * in block comment") {
-    val f = writeFile("nospace.scala",
+    val f = writeFile(
+      "nospace.scala",
       """/*
         | *Covenant: full-port
         | *Covenant-baseline-loc: 500
@@ -200,7 +209,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("double space after * in block comment") {
-    val f = writeFile("doublespace.scala",
+    val f = writeFile(
+      "doublespace.scala",
       """/*
         | *  Covenant: full-port
         | *  original-src: lib/foo.dart
@@ -215,7 +225,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt indentation change in continued comment") {
-    val f = writeFile("indent.scala",
+    val f = writeFile(
+      "indent.scala",
       """/*
         |  * Copyright 2026 acme
         |  * Covenant: full-port
@@ -233,7 +244,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- value edge cases -------------------------------------------------
 
   test("value containing colons (URLs)") {
-    val f = writeFile("colons.scala",
+    val f = writeFile(
+      "colons.scala",
       """/*
         | * Covenant: full-port
         | * source-reference: https://github.com/foo/bar/blob/main/Baz.java
@@ -247,7 +259,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("empty value after colon") {
-    val f = writeFile("empty.scala",
+    val f = writeFile(
+      "empty.scala",
       """/*
         | * Covenant: full-port
         | * notes:
@@ -265,9 +278,7 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("value with trailing whitespace") {
-    val f = writeFile("trailing.scala",
-      "/*\n * Covenant: full-port   \n * status: ported  \n */\npackage x\n"
-    )
+    val f = writeFile("trailing.scala", "/*\n * Covenant: full-port   \n * status: ported  \n */\npackage x\n")
     FileHeader.parse(f).map { fp =>
       assertEquals(fp.properties("covenant"), "full-port")
       assertEquals(fp.properties("status"), "ported")
@@ -277,7 +288,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- comment style variations -----------------------------------------
 
   test("line comments only") {
-    val f = writeFile("lineonly.scala",
+    val f = writeFile(
+      "lineonly.scala",
       """// Covenant: full-port
         |// original-src: lib/foo.dart
         |// status: ported
@@ -292,7 +304,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("single-line block comment") {
-    val f = writeFile("singleline.scala",
+    val f = writeFile(
+      "singleline.scala",
       """/* Covenant: full-port */
         |package x
         |""".stripMargin
@@ -303,7 +316,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("block comment followed by line comments") {
-    val f = writeFile("mixed.scala",
+    val f = writeFile(
+      "mixed.scala",
       """/*
         | * Copyright 2026 acme
         | * Covenant: full-port
@@ -320,7 +334,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("stops parsing at first code line") {
-    val f = writeFile("stop.scala",
+    val f = writeFile(
+      "stop.scala",
       """/*
         | * Covenant: full-port
         | */
@@ -339,7 +354,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- migration note noise (SSG/SGE real-world patterns) ---------------
 
   test("migration notes parsed as properties (SSG/SGE pattern)") {
-    val f = writeFile("migration.scala",
+    val f = writeFile(
+      "migration.scala",
       """/*
         | * Ported from libGDX
         | * Original source: com/badlogic/gdx/Gdx.java
@@ -373,7 +389,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("Covenant-java-reference normalizes correctly (SSG liquid pattern)") {
-    val f = writeFile("javref.scala",
+    val f = writeFile(
+      "javref.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-java-reference: liqp/src/main/java/liqp/blocks/If.java
@@ -392,7 +409,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- scalafmt docstring reformat scenarios ----------------------------
 
   test("scalafmt adds blank * line between sections") {
-    val f = writeFile("blanks.scala",
+    val f = writeFile(
+      "blanks.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -416,7 +434,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt removes blank lines between fields") {
-    val f = writeFile("noblank.scala",
+    val f = writeFile(
+      "noblank.scala",
       """/*
         | * Copyright 2026 acme
         | * Covenant: full-port
@@ -436,7 +455,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("scalafmt rewraps entire comment body preserving key-value pairs") {
-    val f = writeFile("rewrap.scala",
+    val f = writeFile(
+      "rewrap.scala",
       """/*
         | * Copyright 2026 acme. This is a longer copyright notice that the formatter
         | * might choose to reflow across line boundaries, potentially changing where
@@ -461,7 +481,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- nested block comment in documentation ----------------------------
 
   test("nested block comment example in doc doesn't confuse parser") {
-    val f = writeFile("nested.scala",
+    val f = writeFile(
+      "nested.scala",
       """/*
         | * Example:
         | *   /*
@@ -494,7 +515,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   // -- FileHeaderApply formatting preservation --------------------------
 
   test("set preserves existing comment structure") {
-    val f = writeFile("preserve.scala",
+    val f = writeFile(
+      "preserve.scala",
       """/*
         | * Copyright 2026 acme
         | * SPDX-License-Identifier: Apache-2.0
@@ -526,7 +548,8 @@ final class FileHeaderFormattingSpec extends CatsEffectSuite {
   }
 
   test("set then scalafmt-style reformat then parse round-trips") {
-    val f = writeFile("reformat.scala",
+    val f = writeFile(
+      "reformat.scala",
       """/*
         | * Copyright 2026 acme
         | * Covenant: full-port

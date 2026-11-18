@@ -34,9 +34,9 @@ object Predicate {
     }
 
   def evaluate(expr: Expr, props: Map[String, String]): Boolean = expr match {
-    case Expr.Eq(f, v)         => props.getOrElse(f, "") == v
-    case Expr.Neq(f, v)        => props.getOrElse(f, "") != v
-    case Expr.Contains(f, v)   =>
+    case Expr.Eq(f, v)  => props.getOrElse(f, "") == v
+    case Expr.Neq(f, v) => props.getOrElse(f, "") != v
+    case Expr.Contains(f, v) =>
       val raw = props.getOrElse(f, "")
       raw.contains(v) || raw.split(",").map(_.trim).contains(v)
     case Expr.StartsWith(f, v) => props.getOrElse(f, "").startsWith(v)
@@ -67,7 +67,7 @@ object Predicate {
   private val valueP: Parser[String] =
     quotedDouble.backtrack | quotedSingle.backtrack | bareWord
 
-  private sealed trait Op
+  sealed private trait Op
   private case object EqOp extends Op
   private case object NeqOp extends Op
   private case object ContainsOp extends Op
@@ -84,15 +84,15 @@ object Predicate {
 
   private val symbolOp: Parser[Op] =
     Parser.string("!=").as(NeqOp: Op).backtrack |
-    Parser.char('=').as(EqOp: Op)
+      Parser.char('=').as(EqOp: Op)
 
   private val wordBoundary: Parser0[Unit] =
     Parser.not(Parser.charWhere(c => c.isLetterOrDigit || c == '-' || c == '_'))
 
   private val keywordOp: Parser[Op] =
     (Parser.string("starts-with") <* wordBoundary).as(StartsWithOp: Op).backtrack |
-    (Parser.string("ends-with") <* wordBoundary).as(EndsWithOp: Op).backtrack |
-    (Parser.string("contains") <* wordBoundary).as(ContainsOp: Op)
+      (Parser.string("ends-with") <* wordBoundary).as(EndsWithOp: Op).backtrack |
+      (Parser.string("contains") <* wordBoundary).as(ContainsOp: Op)
 
   private val comparison: Parser[Expr] = {
     val withSymbol = (fieldP ~ (ws *> symbolOp) ~ (ws *> valueP)).map {
@@ -116,10 +116,10 @@ object Predicate {
 
     val andSep: Parser[Unit] =
       (ws.with1 *> Parser.string("&&") *> ws).void.backtrack |
-      (Parser.string("&&") *> ws).void
+        (Parser.string("&&") *> ws).void
     val orSep: Parser[Unit] =
       (ws.with1 *> Parser.string("||") *> ws).void.backtrack |
-      (Parser.string("||") *> ws).void
+        (Parser.string("||") *> ws).void
 
     val andExpr: Parser[Expr] =
       (primary ~ (andSep *> primary).rep0).map { case (first, rest) =>

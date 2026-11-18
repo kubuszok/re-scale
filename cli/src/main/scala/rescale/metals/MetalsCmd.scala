@@ -22,10 +22,10 @@ object MetalsCmd {
     args match {
       case Nil | "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
-      case "install" :: _   => install()
-      case "start" :: rest  => start(Cli.parse(rest))
-      case "stop" :: _      => stop()
-      case "status" :: _    => status()
+      case "install" :: _  => install()
+      case "start" :: rest => start(Cli.parse(rest))
+      case "stop" :: _     => stop()
+      case "status" :: _   => status()
       case other :: _ =>
         IO(Term.err(s"Unknown metals command: $other")).as(ExitCode.Error)
     }
@@ -39,20 +39,20 @@ object MetalsCmd {
   private def start(args: Cli.Args): IO[ExitCode] =
     Paths.projectRoot.flatMap { root =>
       val port = args.flagOrDefault("port", "7845")
-      val pf   = pidFile(root)
-      val lf   = logFile(root)
+      val pf = pidFile(root)
+      val lf = logFile(root)
 
       // Check if already running
       for {
         alreadyRunning <- IO.blocking {
           if (pf.exists()) {
             val pid = scala.io.Source.fromFile(pf).mkString.trim.toLongOption
-            pid.exists(p => {
+            pid.exists { p =>
               val check = scala.sys.process.Process(List("kill", "-0", p.toString)).!(
                 scala.sys.process.ProcessLogger(_ => (), _ => ())
               )
               check == 0
-            })
+            }
           } else false
         }
         result <- {
@@ -62,21 +62,25 @@ object MetalsCmd {
             // Start metals in background via nohup + shell
             val cmd = List(
               "metals-mcp",
-              "--workspace", root.getAbsolutePath,
-              "--port", port,
-              "--client", "claude",
+              "--workspace",
+              root.getAbsolutePath,
+              "--port",
+              port,
+              "--client",
+              "claude",
               "--default-bsp-to-build-tool"
             )
             IO.blocking {
               if (pf.exists()) pf.delete(): Unit
               val pb = new ProcessBuilder(
-                "sh", "-c",
+                "sh",
+                "-c",
                 s"nohup ${cmd.mkString(" ")} > ${lf.getAbsolutePath} 2>&1 & echo $$!"
               )
               pb.directory(root)
               val process = pb.start()
-              val reader  = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream))
-              val pidStr  = reader.readLine()
+              val reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream))
+              val pidStr = reader.readLine()
               reader.close()
               process.waitFor()
               pidStr

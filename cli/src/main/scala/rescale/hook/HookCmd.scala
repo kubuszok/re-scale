@@ -35,33 +35,33 @@ import rescale.hook.Rule.*
 
 object HookCmd {
 
-  def run(args: List[String]): IO[ExitCode] = {
+  def run(args: List[String]): IO[ExitCode] =
     args match {
       case "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
       case _ =>
         for {
-          stdin    <- readStdin
-          rules    <- loadRules
-          response  = process(stdin, rules)
-          _        <- IO.println(response)
+          stdin <- readStdin
+          rules <- loadRules
+          response = process(stdin, rules)
+          _ <- IO.println(response)
         } yield ExitCode.Success
     }
-  }
 
-  /** Load the rule set: defaults from `DefaultRules.ruleSet` plus any
-    * per-project overrides from `.rescale/claude-hooks.yaml`. The
-    * project-root lookup is best-effort — a hook running outside any
-    * recognized project root just gets the defaults.
-    *
-    * Parse errors print a warning to stderr and fall back to defaults
-    * so a malformed config never breaks the hook flow.
-    */
+  /**
+   * Load the rule set: defaults from `DefaultRules.ruleSet` plus any
+   * per-project overrides from `.rescale/claude-hooks.yaml`. The
+   * project-root lookup is best-effort — a hook running outside any
+   * recognized project root just gets the defaults.
+   *
+   * Parse errors print a warning to stderr and fall back to defaults
+   * so a malformed config never breaks the hook flow.
+   */
   private val loadRules: IO[RuleSet] = IO.defer {
     // Discover the project root from the current working directory.
     // If no marker is found, fall back to defaults silently.
     Paths.discover().flatMap {
-      case None       => IO.pure(DefaultRules.ruleSet)
+      case None => IO.pure(DefaultRules.ruleSet)
       case Some(root) =>
         val cfg = Paths.claudeHooksConfig(root)
         IO.blocking(RuleConfig.loadAndMerge(cfg)).map {
@@ -73,10 +73,11 @@ object HookCmd {
     }
   }
 
-  /** Process a single PreToolUse event JSON string and return the
-    * response JSON. Pure function — no IO. Lets tests cover the full
-    * decision pipeline without spawning subprocesses.
-    */
+  /**
+   * Process a single PreToolUse event JSON string and return the
+   * response JSON. Pure function — no IO. Lets tests cover the full
+   * decision pipeline without spawning subprocesses.
+   */
   def process(input: String, rules: RuleSet): String = {
     // Check non-Bash tools for .rescale/data access first.
     val toolName = extractStringField(input, "tool_name")
@@ -85,9 +86,10 @@ object HookCmd {
         val filePath = extractStringField(input, "file_path")
         filePath match {
           case Some(p) if p.contains(".rescale/data/") =>
-            return responseJson("deny",
+            return responseJson(
+              "deny",
               s"Direct access to .rescale/data/ denied — use 're-scale db' commands instead. " +
-              "This ensures atomic writes, file locking, and consistent TSV formatting."
+                "This ensures atomic writes, file locking, and consistent TSV formatting."
             )
           case _ => // fall through to allow
         }
@@ -101,17 +103,18 @@ object HookCmd {
           case Some(cmd) if cmd.trim.isEmpty =>
             responseJson("allow", "")
           case Some(cmd) =>
-            val expr     = BashParser.parse(cmd)
+            val expr = BashParser.parse(cmd)
             val decision = RuleEvaluator.evaluate(expr, rules)
             renderDecision(decision)
         }
     }
   }
 
-  /** Extract a JSON string field by key name. Generic version of
-    * [[extractBashCommand]] — scans for `"<key>"\s*:\s*"..."` and
-    * unescapes standard JSON string escapes. Returns None if not found.
-    */
+  /**
+   * Extract a JSON string field by key name. Generic version of
+   * [[extractBashCommand]] — scans for `"<key>"\s*:\s*"..."` and
+   * unescapes standard JSON string escapes. Returns None if not found.
+   */
   private[hook] def extractStringField(input: String, fieldName: String): Option[String] = {
     if (input.isEmpty) return None
     val key = s""""$fieldName""""
@@ -124,22 +127,21 @@ object HookCmd {
         j += 1
         val sb = new StringBuilder
         var done = false
-        while (j < input.length && !done) {
+        while (j < input.length && !done)
           input(j) match {
             case '\\' if j + 1 < input.length =>
               input(j + 1) match {
                 case 'n'  => sb.append('\n'); j += 2
                 case 't'  => sb.append('\t'); j += 2
                 case 'r'  => sb.append('\r'); j += 2
-                case '"'  => sb.append('"');  j += 2
+                case '"'  => sb.append('"'); j += 2
                 case '\\' => sb.append('\\'); j += 2
-                case '/'  => sb.append('/');  j += 2
-                case c    => sb.append(c);    j += 2
+                case '/'  => sb.append('/'); j += 2
+                case c    => sb.append(c); j += 2
               }
             case '"' => done = true
             case c   => sb.append(c); j += 1
           }
-        }
         if (done) return Some(sb.toString)
       }
       i = input.indexOf(key, i + 1)
@@ -147,9 +149,10 @@ object HookCmd {
     None
   }
 
-  /** Minimal-effort JSON extraction. Delegates to [[extractStringField]]
-    * for the `command` key.
-    */
+  /**
+   * Minimal-effort JSON extraction. Delegates to [[extractStringField]]
+   * for the `command` key.
+   */
   private[hook] def extractBashCommand(input: String): Option[String] = {
     if (input.isEmpty) return None
     // Quick reject: not a Bash tool call.
@@ -157,7 +160,7 @@ object HookCmd {
 
     // Find "command" : "..." with proper escape handling.
     val key = "\"command\""
-    var i   = input.indexOf(key)
+    var i = input.indexOf(key)
     while (i >= 0) {
       var j = i + key.length
       // Skip whitespace and colon
@@ -167,24 +170,23 @@ object HookCmd {
         j += 1
         val sb = new StringBuilder
         var done = false
-        while (j < input.length && !done) {
+        while (j < input.length && !done)
           input(j) match {
             case '\\' if j + 1 < input.length =>
               input(j + 1) match {
                 case 'n'  => sb.append('\n'); j += 2
                 case 't'  => sb.append('\t'); j += 2
                 case 'r'  => sb.append('\r'); j += 2
-                case '"'  => sb.append('"');  j += 2
+                case '"'  => sb.append('"'); j += 2
                 case '\\' => sb.append('\\'); j += 2
-                case '/'  => sb.append('/');  j += 2
-                case c    => sb.append(c);    j += 2
+                case '/'  => sb.append('/'); j += 2
+                case c    => sb.append(c); j += 2
               }
             case '"' =>
               done = true
             case c =>
               sb.append(c); j += 1
           }
-        }
         if (done) return Some(sb.toString)
       }
       i = input.indexOf(key, i + 1)
@@ -194,17 +196,18 @@ object HookCmd {
 
   /** Render a Decision as the Claude Code hook response JSON. */
   private[hook] def renderDecision(decision: Decision): String = decision match {
-    case Decision.Allow      => responseJson("allow", "")
-    case Decision.Pass(r)    => responseJson("allow", r)
-    case Decision.Ask(r)     => responseJson("ask", r)
-    case Decision.Deny(r)    => responseJson("deny", r)
+    case Decision.Allow   => responseJson("allow", "")
+    case Decision.Pass(r) => responseJson("allow", r)
+    case Decision.Ask(r)  => responseJson("ask", r)
+    case Decision.Deny(r) => responseJson("deny", r)
   }
 
-  /** Build the wrapped Claude Code hook response. The wrapping under
-    * `hookSpecificOutput` with `hookEventName: PreToolUse` is the
-    * exact shape Claude Code expects from a PreToolUse hook — without
-    * it, the decision is silently ignored.
-    */
+  /**
+   * Build the wrapped Claude Code hook response. The wrapping under
+   * `hookSpecificOutput` with `hookEventName: PreToolUse` is the
+   * exact shape Claude Code expects from a PreToolUse hook — without
+   * it, the decision is silently ignored.
+   */
   private def responseJson(decision: String, reason: String): String = {
     val escapedReason = reason
       .replace("\\", "\\\\")
@@ -215,13 +218,14 @@ object HookCmd {
     s"""{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"$decision","permissionDecisionReason":"$escapedReason"}}"""
   }
 
-  /** Read all of stdin into a String. Bounded by the harness — Claude
-    * Code never sends more than a few KB to a hook.
-    */
+  /**
+   * Read all of stdin into a String. Bounded by the harness — Claude
+   * Code never sends more than a few KB to a hook.
+   */
   private val readStdin: IO[String] = IO.blocking {
-    val sb  = new StringBuilder
+    val sb = new StringBuilder
     val buf = new Array[Byte](4096)
-    var n   = 0
+    var n = 0
     var done = false
     while (!done) {
       n = System.in.read(buf)

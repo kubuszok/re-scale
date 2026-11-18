@@ -25,7 +25,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("parses a full-port covenant header (source-reference field)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | *
@@ -52,7 +53,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("backward-compat: parses Covenant-dart-reference into sourceReference") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-dart-reference: lib/src/old.dart
@@ -66,7 +68,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("returns None when no Covenant: line is present") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Copyright 2026 acme
         | * (no covenant header at all)
@@ -80,7 +83,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a non-covenanted file returns Left(no covenant header)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """package x
         |class Y { def z: Int = 1 }
         |""".stripMargin
@@ -92,7 +96,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a partial-port covenant returns Right (only full-port enforced)") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: partial-port
         | * Covenant-baseline-methods: foo
@@ -107,7 +112,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a full-port file with no missing methods passes") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-methods: alpha,beta
@@ -125,7 +131,8 @@ final class CovenantSpec extends CatsEffectSuite {
   }
 
   test("verify on a full-port file with a removed method fails") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """/*
         | * Covenant: full-port
         | * Covenant-baseline-methods: alpha,beta,gamma

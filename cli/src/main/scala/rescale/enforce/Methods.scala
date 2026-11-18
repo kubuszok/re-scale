@@ -49,10 +49,10 @@ import scala.util.matching.Regex
 object Methods {
 
   final case class Gap(
-    missing:         List[String],
-    extra:           List[String],
-    common:          List[String],
-    shortBody:       List[String],
+    missing: List[String],
+    extra: List[String],
+    common: List[String],
+    shortBody: List[String],
     droppedCtorArgs: List[(String, String)] // (className, paramName)
   )
 
@@ -62,9 +62,10 @@ object Methods {
 
   // -- Per-line definition patterns ----------------------------------
 
-  /** Scala `def name` at any indentation. Anchored at start-of-line so
-    * comments mid-line don't trigger.
-    */
+  /**
+   * Scala `def name` at any indentation. Anchored at start-of-line so
+   * comments mid-line don't trigger.
+   */
   private val scalaDef: Regex =
     """^[ \t]*(?:override\s+|final\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|implicit\s+|lazy\s+|inline\s+|transparent\s+)*def\s+(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_$]*))""".r
 
@@ -102,10 +103,11 @@ object Methods {
 
   // -- Public API: name extraction (streaming) -----------------------
 
-  /** Return the set of top-level/method names defined in a Scala file.
-    * Streaming, constant-memory per file.
-    */
-  def extractScalaNames(path: Path): IO[List[String]] = {
+  /**
+   * Return the set of top-level/method names defined in a Scala file.
+   * Streaming, constant-memory per file.
+   */
+  def extractScalaNames(path: Path): IO[List[String]] =
     FileOps
       .streamLines(path)
       .compile
@@ -122,7 +124,6 @@ object Methods {
         acc
       }
       .map(_.toList.sorted)
-  }
 
   def extractScalaNames(file: File): IO[List[String]] = extractScalaNames(Path.fromNioPath(file.toPath))
 
@@ -168,23 +169,23 @@ object Methods {
 
   // -- Public API: streaming body token-count ------------------------
 
-  /** Extract per-method body token counts via a streaming brace-matcher.
-    *
-    * The state machine has three modes:
-    *   - Idle: looking for a definition keyword on the current line
-    *   - InHeader: saw `def name`, scanning ahead for `=` or `{`
-    *   - InBody: counting tokens until brace depth returns to 0
-    *
-    * Each mode holds O(1) memory; the per-file working set is bounded
-    * by one line + the in-flight method name + an Int counter.
-    */
-  def extractScalaTokenCounts(path: Path): IO[Map[String, Int]] = {
+  /**
+   * Extract per-method body token counts via a streaming brace-matcher.
+   *
+   * The state machine has three modes:
+   *   - Idle: looking for a definition keyword on the current line
+   *   - InHeader: saw `def name`, scanning ahead for `=` or `{`
+   *   - InBody: counting tokens until brace depth returns to 0
+   *
+   * Each mode holds O(1) memory; the per-file working set is bounded
+   * by one line + the in-flight method name + an Int counter.
+   */
+  def extractScalaTokenCounts(path: Path): IO[Map[String, Int]] =
     FileOps
       .streamLines(path)
       .compile
       .fold(BodyAcc.empty)((s, lr) => stepScalaBody(s, lr._2))
       .map(_.finalize_())
-  }
 
   def extractScalaTokenCounts(file: File): IO[Map[String, Int]] =
     extractScalaTokenCounts(Path.fromNioPath(file.toPath))
@@ -211,25 +212,26 @@ object Methods {
 
   // -- Body extraction state machine ---------------------------------
 
-  /** Streaming body-token-count accumulator. Holds at most:
-    *   - the in-flight method name (Option[String])
-    *   - the current brace depth (Int)
-    *   - the running token count for the in-flight body (Int)
-    *   - the completed map (Map[String, Int])
-    *
-    * No file content is retained beyond what's needed for the current
-    * brace-depth update on the current line.
-    */
-  private final case class BodyAcc(
-    completed:    Map[String, Int],
-    inFlight:     Option[String],
-    inFlightCnt:  Int,
-    braceDepth:   Int,
+  /**
+   * Streaming body-token-count accumulator. Holds at most:
+   *   - the in-flight method name (Option[String])
+   *   - the current brace depth (Int)
+   *   - the running token count for the in-flight body (Int)
+   *   - the completed map (Map[String, Int])
+   *
+   * No file content is retained beyond what's needed for the current
+   * brace-depth update on the current line.
+   */
+  final private case class BodyAcc(
+    completed: Map[String, Int],
+    inFlight: Option[String],
+    inFlightCnt: Int,
+    braceDepth: Int,
     sawOpenBrace: Boolean
   ) {
     def finalize_(): Map[String, Int] = inFlight match {
       case Some(name) if inFlightCnt > 0 => completed.updated(name, inFlightCnt)
-      case _                              => completed
+      case _                             => completed
     }
   }
 
@@ -237,17 +239,18 @@ object Methods {
     val empty: BodyAcc = BodyAcc(Map.empty, None, 0, 0, sawOpenBrace = false)
   }
 
-  /** Process one line of a Scala file and update the body accumulator.
-    *
-    * Only `def` declarations are tracked — `class`/`object`/`trait`/
-    * `enum` bodies are deliberately ignored, because (a) they have no
-    * Java/Dart counterpart with the same name in shortBody comparisons,
-    * and (b) tracking them would require a stack to handle nested defs.
-    *
-    * Caveat: defs nested inside other defs (e.g. local helpers) get
-    * attributed to the outer def. This is rare in practice and matches
-    * the legacy behavior closely enough.
-    */
+  /**
+   * Process one line of a Scala file and update the body accumulator.
+   *
+   * Only `def` declarations are tracked — `class`/`object`/`trait`/
+   * `enum` bodies are deliberately ignored, because (a) they have no
+   * Java/Dart counterpart with the same name in shortBody comparisons,
+   * and (b) tracking them would require a stack to handle nested defs.
+   *
+   * Caveat: defs nested inside other defs (e.g. local helpers) get
+   * attributed to the outer def. This is rare in practice and matches
+   * the legacy behavior closely enough.
+   */
   private def stepScalaBody(state: BodyAcc, line: String): BodyAcc = {
     var s = state
 
@@ -261,7 +264,7 @@ object Methods {
             s = consumeScalaLineForBody(s, line, m.end)
           }
         case None =>
-          // Ignore — type declarations and unrelated lines.
+        // Ignore — type declarations and unrelated lines.
       }
       return s
     }
@@ -270,15 +273,16 @@ object Methods {
     consumeScalaLineForBody(s, line, 0)
   }
 
-  /** Continue body accumulation on a Scala line starting at offset
-    * `from`. Updates braceDepth, counts tokens once we're past the
-    * opening `{` or `=`, and emits the in-flight method when the body
-    * closes.
-    */
+  /**
+   * Continue body accumulation on a Scala line starting at offset
+   * `from`. Updates braceDepth, counts tokens once we're past the
+   * opening `{` or `=`, and emits the in-flight method when the body
+   * closes.
+   */
   private def consumeScalaLineForBody(s0: BodyAcc, line: String, from: Int): BodyAcc = {
-    var s         = s0
-    var i         = from
-    val n         = line.length
+    var s = s0
+    var i = from
+    val n = line.length
     var seenEqOrBrace = s.sawOpenBrace
     // If we haven't seen the opening token yet, scan forward for `{` or `=>`/`=`.
     if (!seenEqOrBrace && s.braceDepth == 0) {
@@ -299,11 +303,11 @@ object Methods {
         } else {
           // One-liner: count rest of line as the body.
           val tail = line.substring(i)
-          val cnt  = countTokens(tail)
+          val cnt = countTokens(tail)
           val name = s.inFlight.get
           s = s.copy(
-            completed   = s.completed.updated(name, s.inFlightCnt + cnt),
-            inFlight    = None,
+            completed = s.completed.updated(name, s.inFlightCnt + cnt),
+            inFlight = None,
             inFlightCnt = 0
           )
           return s
@@ -318,9 +322,9 @@ object Methods {
     // We're now inside a braced body. Count tokens and update depth.
     // Use a simple lexer that skips strings/chars/comments to keep
     // brace depth accurate.
-    val sb       = new StringBuilder
-    var depth    = s.braceDepth
-    var done     = false
+    val sb = new StringBuilder
+    var depth = s.braceDepth
+    var done = false
     while (i < n && !done) {
       val c = line.charAt(i)
       // Skip line comment to end-of-line.
@@ -338,18 +342,16 @@ object Methods {
         // String literal
         sb.append('"')
         i += 1
-        while (i < n && line.charAt(i) != '"') {
+        while (i < n && line.charAt(i) != '"')
           if (line.charAt(i) == '\\' && i + 1 < n) i += 2
           else i += 1
-        }
         if (i < n) i += 1
       } else if (c == '\'') {
         sb.append('\'')
         i += 1
-        while (i < n && line.charAt(i) != '\'') {
+        while (i < n && line.charAt(i) != '\'')
           if (line.charAt(i) == '\\' && i + 1 < n) i += 2
           else i += 1
-        }
         if (i < n) i += 1
       } else if (c == '{') {
         depth += 1
@@ -359,13 +361,13 @@ object Methods {
         depth -= 1
         if (depth == 0) {
           // Method body closed.
-          val cnt  = countTokens(sb.toString)
+          val cnt = countTokens(sb.toString)
           val name = s.inFlight.get
           s = s.copy(
-            completed   = s.completed.updated(name, s.inFlightCnt + cnt),
-            inFlight    = None,
+            completed = s.completed.updated(name, s.inFlightCnt + cnt),
+            inFlight = None,
             inFlightCnt = 0,
-            braceDepth  = 0,
+            braceDepth = 0,
             sawOpenBrace = false
           )
           done = true
@@ -388,11 +390,12 @@ object Methods {
     s
   }
 
-  /** Same approach for Dart and Java. C-style bodies are simpler than
-    * Scala because there's no `def x = expr` form — bodies always use
-    * `{ ... }`. We still need to consume the parameter list `(...)`
-    * before scanning for the opening brace.
-    */
+  /**
+   * Same approach for Dart and Java. C-style bodies are simpler than
+   * Scala because there's no `def x = expr` form — bodies always use
+   * `{ ... }`. We still need to consume the parameter list `(...)`
+   * before scanning for the opening brace.
+   */
   private def stepCStyleBody(state: BodyAcc, line: String, isDart: Boolean): BodyAcc = {
     var s = state
     if (s.inFlight.isEmpty) {
@@ -406,7 +409,7 @@ object Methods {
     consumeCStyleLineForBody(s, line, 0)
   }
 
-  private def findDartDef(line: String): (Option[String], Int) = {
+  private def findDartDef(line: String): (Option[String], Int) =
     dartTopDef.findFirstMatchIn(line).orElse(dartTypeDef.findFirstMatchIn(line)) match {
       case Some(m) =>
         val name = m.group(1)
@@ -414,9 +417,8 @@ object Methods {
         else (None, 0)
       case None => (None, 0)
     }
-  }
 
-  private def findJavaDef(line: String): (Option[String], Int) = {
+  private def findJavaDef(line: String): (Option[String], Int) =
     javaMethod.findFirstMatchIn(line).orElse(javaTypeDef.findFirstMatchIn(line)) match {
       case Some(m) =>
         val name = m.group(1)
@@ -424,7 +426,6 @@ object Methods {
         else (None, 0)
       case None => (None, 0)
     }
-  }
 
   private def consumeCStyleLineForBody(s0: BodyAcc, line: String, from: Int): BodyAcc = {
     var s = s0
@@ -447,9 +448,9 @@ object Methods {
     }
 
     // We're inside the body. Use the same lexer as Scala.
-    val sb    = new StringBuilder
+    val sb = new StringBuilder
     var depth = s.braceDepth
-    var done  = false
+    var done = false
     while (i < n && !done) {
       val c = line.charAt(i)
       if (c == '/' && i + 1 < n && line.charAt(i + 1) == '/') {
@@ -461,18 +462,16 @@ object Methods {
       } else if (c == '"') {
         sb.append('"')
         i += 1
-        while (i < n && line.charAt(i) != '"') {
+        while (i < n && line.charAt(i) != '"')
           if (line.charAt(i) == '\\' && i + 1 < n) i += 2
           else i += 1
-        }
         if (i < n) i += 1
       } else if (c == '\'') {
         sb.append('\'')
         i += 1
-        while (i < n && line.charAt(i) != '\'') {
+        while (i < n && line.charAt(i) != '\'')
           if (line.charAt(i) == '\\' && i + 1 < n) i += 2
           else i += 1
-        }
         if (i < n) i += 1
       } else if (c == '{') {
         depth += 1
@@ -481,13 +480,13 @@ object Methods {
       } else if (c == '}') {
         depth -= 1
         if (depth == 0) {
-          val cnt  = countTokens(sb.toString)
+          val cnt = countTokens(sb.toString)
           val name = s.inFlight.get
           s = s.copy(
-            completed    = s.completed.updated(name, s.inFlightCnt + cnt),
-            inFlight     = None,
-            inFlightCnt  = 0,
-            braceDepth   = 0,
+            completed = s.completed.updated(name, s.inFlightCnt + cnt),
+            inFlight = None,
+            inFlightCnt = 0,
+            braceDepth = 0,
             sawOpenBrace = false
           )
           done = true
@@ -512,10 +511,11 @@ object Methods {
 
   // -- Compare ------------------------------------------------------
 
-  /** Compute the gap between an SSG file and its source reference.
-    * Auto-detects source language by extension. All file IO is via
-    * the streaming primitives above.
-    */
+  /**
+   * Compute the gap between an SSG file and its source reference.
+   * Auto-detects source language by extension. All file IO is via
+   * the streaming primitives above.
+   */
   def compare(ssgFile: Path, sourceFile: Path): IO[Gap] = {
     val sourceName = sourceFile.toString
     val sourceNamesIO: IO[List[String]] =
@@ -525,19 +525,20 @@ object Methods {
 
     for {
       scalaNames <- extractScalaNames(ssgFile)
-      srcNames   <- sourceNamesIO
-      scalaSet    = scalaNames.toSet
-      sourceSet   = srcNames.toSet
-      missing     = (sourceSet -- scalaSet).toList.sorted
-      extra       = (scalaSet -- sourceSet).toList.sorted
-      common      = (sourceSet intersect scalaSet).toList.sorted
+      srcNames <- sourceNamesIO
+      scalaSet = scalaNames.toSet
+      sourceSet = srcNames.toSet
+      missing = (sourceSet -- scalaSet).toList.sorted
+      extra = (scalaSet -- sourceSet).toList.sorted
+      common = (sourceSet intersect scalaSet).toList.sorted
     } yield Gap(missing, extra, common, shortBody = Nil, droppedCtorArgs = Nil)
   }
 
-  /** Strict compare: like [[compare]] but also computes the shortBody
-    * list (common names whose Scala body has < 70% of the source body's
-    * AST-node-count) and the dropped ctor params.
-    */
+  /**
+   * Strict compare: like [[compare]] but also computes the shortBody
+   * list (common names whose Scala body has < 70% of the source body's
+   * AST-node-count) and the dropped ctor params.
+   */
   def strictCompare(ssgFile: Path, sourceFile: Path): IO[Gap] = {
     val sourceName = sourceFile.toString
     val sourceCountsIO: IO[Map[String, Int]] =
@@ -545,52 +546,51 @@ object Methods {
       else extractDartTokenCounts(sourceFile)
 
     for {
-      base         <- compare(ssgFile, sourceFile)
-      scalaCounts  <- extractScalaTokenCounts(ssgFile)
+      base <- compare(ssgFile, sourceFile)
+      scalaCounts <- extractScalaTokenCounts(ssgFile)
       sourceCounts <- sourceCountsIO
-      shortBody     = base.common.filter { name =>
-                        val sb = scalaCounts.getOrElse(name, 0)
-                        val db = sourceCounts.getOrElse(name, 0)
-                        db > 0 && sb * 100 < db * 70
-                      }
+      shortBody = base.common.filter { name =>
+        val sb = scalaCounts.getOrElse(name, 0)
+        val db = sourceCounts.getOrElse(name, 0)
+        db > 0 && sb * 100 < db * 70
+      }
       ctors <- compareConstructors(ssgFile, sourceFile)
     } yield base.copy(shortBody = shortBody, droppedCtorArgs = ctors)
   }
 
   // -- Constructor comparison (streaming, line-glued) -----------------
 
-  /** Streaming ctor extractor. Glues physical lines until paren-balance
-    * returns to 0, then runs the legacy parameter-name extractor on
-    * the glued buffer. The buffer holds at most one ctor parameter
-    * list at a time.
-    */
-  private def extractScalaCtorParams(path: Path): IO[Map[String, Set[String]]] = {
+  /**
+   * Streaming ctor extractor. Glues physical lines until paren-balance
+   * returns to 0, then runs the legacy parameter-name extractor on
+   * the glued buffer. The buffer holds at most one ctor parameter
+   * list at a time.
+   */
+  private def extractScalaCtorParams(path: Path): IO[Map[String, Set[String]]] =
     FileOps
       .streamLines(path)
       .compile
       .fold(CtorAcc.empty)((s, lr) => stepScalaCtor(s, lr._2))
       .map(_.toMap)
-  }
 
-  private def extractCtorParams(path: Path, isDart: Boolean): IO[Map[String, Set[String]]] = {
+  private def extractCtorParams(path: Path, isDart: Boolean): IO[Map[String, Set[String]]] =
     FileOps
       .streamLines(path)
       .compile
       .fold(CtorAcc.empty)((s, lr) => stepCtorCStyle(s, lr._2, isDart))
       .map(_.toMap)
-  }
 
   def compareConstructors(ssgFile: Path, sourceFile: Path): IO[List[(String, String)]] = {
     val sourceName = sourceFile.toString
-    val isDart     = sourceName.endsWith(".dart")
+    val isDart = sourceName.endsWith(".dart")
     for {
-      scalaCtors  <- extractScalaCtorParams(ssgFile)
+      scalaCtors <- extractScalaCtorParams(ssgFile)
       sourceCtors <- extractCtorParams(sourceFile, isDart)
     } yield {
       val out = mutable.ListBuffer.empty[(String, String)]
       for ((cls, srcParams) <- sourceCtors) {
         val scalaParams = scalaCtors.getOrElse(cls, Set.empty)
-        val dropped     = srcParams -- scalaParams
+        val dropped = srcParams -- scalaParams
         for (p <- dropped.toList.sorted) out += ((cls, p))
       }
       out.toList
@@ -599,21 +599,22 @@ object Methods {
 
   // -- Ctor accumulator state machine -------------------------------
 
-  /** Accumulator for streaming ctor extraction. Tracks an optional
-    * in-flight ctor (class name + collected param-list buffer + paren
-    * depth) and the completed per-class param sets.
-    */
-  private final case class CtorAcc(
+  /**
+   * Accumulator for streaming ctor extraction. Tracks an optional
+   * in-flight ctor (class name + collected param-list buffer + paren
+   * depth) and the completed per-class param sets.
+   */
+  final private case class CtorAcc(
     completed: Map[String, Set[String]],
-    pending:   Option[Pending]
+    pending: Option[Pending]
   ) {
     def toMap: Map[String, Set[String]] = completed
   }
 
-  private final case class Pending(
+  final private case class Pending(
     className: String,
-    isScala:   Boolean,
-    paramBuf:  StringBuilder,
+    isScala: Boolean,
+    paramBuf: StringBuilder,
     parenDepth: Int
   )
 
@@ -630,7 +631,7 @@ object Methods {
   private val dartCtor: Regex =
     """^\s*(?:const\s+|factory\s+)?([A-Z][A-Za-z0-9_$]*)\s*\(""".r
 
-  private def stepScalaCtor(s: CtorAcc, line: String): CtorAcc = {
+  private def stepScalaCtor(s: CtorAcc, line: String): CtorAcc =
     s.pending match {
       case None =>
         scalaPrimaryCtor.findFirstMatchIn(line) match {
@@ -647,9 +648,8 @@ object Methods {
         if (depth == 0) finalizePending(s, p.className, p.paramBuf.toString, isScala = p.isScala)
         else CtorAcc(s.completed, Some(p.copy(parenDepth = depth)))
     }
-  }
 
-  private def stepCtorCStyle(s: CtorAcc, line: String, isDart: Boolean): CtorAcc = {
+  private def stepCtorCStyle(s: CtorAcc, line: String, isDart: Boolean): CtorAcc =
     s.pending match {
       case None =>
         val pat = if (isDart) dartCtor else javaCtor
@@ -667,20 +667,20 @@ object Methods {
         if (depth == 0) finalizePending(s, p.className, p.paramBuf.toString, isScala = p.isScala)
         else CtorAcc(s.completed, Some(p.copy(parenDepth = depth)))
     }
-  }
 
-  /** Append characters to `buf` until paren depth returns to 0. Returns
-    * (chars-consumed, final-depth). The opening `(` itself is NOT in
-    * the buffer; this is called from a position just after `(`.
-    */
+  /**
+   * Append characters to `buf` until paren depth returns to 0. Returns
+   * (chars-consumed, final-depth). The opening `(` itself is NOT in
+   * the buffer; this is called from a position just after `(`.
+   */
   private def consumeParenList(
-    line:       String,
-    from:       Int,
-    buf:        StringBuilder,
+    line: String,
+    from: Int,
+    buf: StringBuilder,
     startDepth: Int
   ): (Int, Int) = {
-    var i     = from
-    val n     = line.length
+    var i = from
+    val n = line.length
     var depth = startDepth
     while (i < n && depth > 0) {
       val c = line.charAt(i)
@@ -696,9 +696,9 @@ object Methods {
   }
 
   private def finalizePending(s: CtorAcc, cls: String, paramList: String, isScala: Boolean): CtorAcc = {
-    val params  = extractParamNames(paramList, isScala).toSet
+    val params = extractParamNames(paramList, isScala).toSet
     val current = s.completed.getOrElse(cls, Set.empty)
-    val merged  = if (isScala) current ++ params else if (params.size > current.size) params else current
+    val merged = if (isScala) current ++ params else if (params.size > current.size) params else current
     CtorAcc(s.completed.updated(cls, merged), pending = None)
   }
 
@@ -709,8 +709,8 @@ object Methods {
       if (trimmed.isEmpty) None
       else if (isScala) {
         val colonIdx = trimmed.indexOf(':')
-        val name     = if (colonIdx > 0) trimmed.substring(0, colonIdx) else trimmed
-        val cleaned  = name.replaceAll("""\b(val|var|implicit|private|protected|override|final)\b""", "").trim
+        val name = if (colonIdx > 0) trimmed.substring(0, colonIdx) else trimmed
+        val cleaned = name.replaceAll("""\b(val|var|implicit|private|protected|override|final)\b""", "").trim
         if (cleaned.isEmpty) None else Some(cleaned)
       } else {
         val noDefault = trimmed.split("=").head.trim
@@ -725,10 +725,10 @@ object Methods {
   }
 
   private def splitTopLevelCommas(s: String): List[String] = {
-    val out   = mutable.ListBuffer.empty[String]
-    val cur   = new StringBuilder
+    val out = mutable.ListBuffer.empty[String]
+    val cur = new StringBuilder
     var depth = 0
-    for (c <- s) {
+    for (c <- s)
       c match {
         case '<' | '[' | '(' => depth += 1; cur.append(c)
         case '>' | ']' | ')' => depth -= 1; cur.append(c)
@@ -737,7 +737,6 @@ object Methods {
           cur.clear()
         case _ => cur.append(c)
       }
-    }
     if (cur.nonEmpty) out += cur.toString
     out.toList
   }
@@ -745,20 +744,86 @@ object Methods {
   // -- Reserved words --------------------------------------------
 
   private val DartReservedWords: Set[String] = Set(
-    "if", "else", "for", "while", "do", "return", "throw", "assert",
-    "new", "const", "final", "var", "this", "super", "in", "is", "as",
-    "switch", "case", "default", "break", "continue", "try", "catch",
-    "finally", "yield", "async", "await", "rethrow", "import", "export",
-    "library", "part", "hide", "show", "on", "typedef", "covariant",
-    "required", "deferred", "abstract", "external", "factory", "operator",
-    "print", "when"
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "return",
+    "throw",
+    "assert",
+    "new",
+    "const",
+    "final",
+    "var",
+    "this",
+    "super",
+    "in",
+    "is",
+    "as",
+    "switch",
+    "case",
+    "default",
+    "break",
+    "continue",
+    "try",
+    "catch",
+    "finally",
+    "yield",
+    "async",
+    "await",
+    "rethrow",
+    "import",
+    "export",
+    "library",
+    "part",
+    "hide",
+    "show",
+    "on",
+    "typedef",
+    "covariant",
+    "required",
+    "deferred",
+    "abstract",
+    "external",
+    "factory",
+    "operator",
+    "print",
+    "when"
   )
 
   private val JavaReservedWords: Set[String] = Set(
-    "if", "else", "for", "while", "do", "return", "throw", "assert",
-    "new", "this", "super", "switch", "case", "default", "break",
-    "continue", "try", "catch", "finally", "import", "package",
-    "abstract", "static", "final", "synchronized", "native", "volatile",
-    "transient", "public", "private", "protected", "instanceof"
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "return",
+    "throw",
+    "assert",
+    "new",
+    "this",
+    "super",
+    "switch",
+    "case",
+    "default",
+    "break",
+    "continue",
+    "try",
+    "catch",
+    "finally",
+    "import",
+    "package",
+    "abstract",
+    "static",
+    "final",
+    "synchronized",
+    "native",
+    "volatile",
+    "transient",
+    "public",
+    "private",
+    "protected",
+    "instanceof"
   )
 }

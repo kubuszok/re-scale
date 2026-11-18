@@ -41,25 +41,27 @@ package rescale.hook
 
 object Rule {
 
-  /** The terminal verdict for a single command (or composed for a
-    * pipeline / chain).
-    */
+  /**
+   * The terminal verdict for a single command (or composed for a
+   * pipeline / chain).
+   */
   enum Decision {
     case Allow
-    case Pass(why: String)  // default-allow with explanation surfaced to user
-    case Ask(why: String)   // user confirmation required
-    case Deny(why: String)  // hard fail; the tool call is blocked
+    case Pass(why: String) // default-allow with explanation surfaced to user
+    case Ask(why: String) // user confirmation required
+    case Deny(why: String) // hard fail; the tool call is blocked
 
     def reason: String = this match {
-      case Allow      => ""
-      case Pass(r)    => r
-      case Ask(r)     => r
-      case Deny(r)    => r
+      case Allow   => ""
+      case Pass(r) => r
+      case Ask(r)  => r
+      case Deny(r) => r
     }
 
-    /** Strength ordering — higher number wins when composing decisions
-      * across pipe / chain / sub command lists.
-      */
+    /**
+     * Strength ordering — higher number wins when composing decisions
+     * across pipe / chain / sub command lists.
+     */
     def strength: Int = this match {
       case Allow   => 0
       case Pass(_) => 1
@@ -68,12 +70,13 @@ object Rule {
     }
   }
 
-  /** A condition is a predicate over a single command's program + args
-    * + redirects. Conditions compose with and/or/not. The
-    * `followed-by` and `preceded-by` operators are pipeline-aware and
-    * evaluated by the RuleEvaluator, not by the condition itself —
-    * see [[Condition.FollowedBy]] / [[Condition.PrecededBy]].
-    */
+  /**
+   * A condition is a predicate over a single command's program + args
+   * + redirects. Conditions compose with and/or/not. The
+   * `followed-by` and `preceded-by` operators are pipeline-aware and
+   * evaluated by the RuleEvaluator, not by the condition itself —
+   * see [[Condition.FollowedBy]] / [[Condition.PrecededBy]].
+   */
   enum Condition {
     case True
     case False
@@ -81,49 +84,56 @@ object Rule {
     case Or(conds: List[Condition])
     case Not(cond: Condition)
 
-    /** Match if the command's program + args start with the given
-      * sequence of literals. The first element is matched against the
-      * program; subsequent elements against args[0], args[1], ...
-      *
-      * Example: `StartsWith(List("git", "push"))` matches `git push`,
-      * `git push origin main`, but not `git status` or `gh push`.
-      */
+    /**
+     * Match if the command's program + args start with the given
+     * sequence of literals. The first element is matched against the
+     * program; subsequent elements against args[0], args[1], ...
+     *
+     * Example: `StartsWith(List("git", "push"))` matches `git push`,
+     * `git push origin main`, but not `git status` or `gh push`.
+     */
     case StartsWith(prefix: List[String])
 
-    /** Match if any of the listed values appears anywhere in the
-      * command (program, args, or redirect targets) as an exact token.
-      */
+    /**
+     * Match if any of the listed values appears anywhere in the
+     * command (program, args, or redirect targets) as an exact token.
+     */
     case HasAny(values: List[String])
 
-    /** Match if any program/arg/redirect ENDS WITH one of the listed
-      * suffixes. Used for filename-extension rules like the JAR/archive
-      * grep evasion rule.
-      */
+    /**
+     * Match if any program/arg/redirect ENDS WITH one of the listed
+     * suffixes. Used for filename-extension rules like the JAR/archive
+     * grep evasion rule.
+     */
     case HasAnySuffix(suffixes: List[String])
 
-    /** Match if any program/arg/redirect CONTAINS one of the listed
-      * substrings. Used for secret-file detection (`/.env`,
-      * `credentials.`, etc.) where the path may have arbitrary prefix.
-      */
+    /**
+     * Match if any program/arg/redirect CONTAINS one of the listed
+     * substrings. Used for secret-file detection (`/.env`,
+     * `credentials.`, etc.) where the path may have arbitrary prefix.
+     */
     case HasAnyContains(substrs: List[String])
 
-    /** Match if any redirect target STARTS WITH one of the listed
-      * prefixes. Used for system-directory write protection
-      * (`/etc/`, `/usr/`, `/System/`, `/Library/`).
-      *
-      * Distinct from `HasAny` because we want to match against the
-      * REDIRECT TARGET specifically, not the program or args.
-      */
+    /**
+     * Match if any redirect target STARTS WITH one of the listed
+     * prefixes. Used for system-directory write protection
+     * (`/etc/`, `/usr/`, `/System/`, `/Library/`).
+     *
+     * Distinct from `HasAny` because we want to match against the
+     * REDIRECT TARGET specifically, not the program or args.
+     */
     case HasRedirectTargetPrefix(prefixes: List[String])
 
-    /** Match if all of the listed values appear in the command.
-      */
+    /**
+     * Match if all of the listed values appear in the command.
+     */
     case HasAll(values: List[String])
 
-    /** Match if a command in the same pipeline is followed by another
-      * command matching `next`. Used by the legacy ssg-dev rule that
-      * forbids `ssg-dev db ... | head` etc.
-      */
+    /**
+     * Match if a command in the same pipeline is followed by another
+     * command matching `next`. Used by the legacy ssg-dev rule that
+     * forbids `ssg-dev db ... | head` etc.
+     */
     case FollowedBy(next: Condition)
 
     /** Mirror of FollowedBy. */
@@ -132,40 +142,44 @@ object Rule {
     /** Match against a redirect operator on the command (e.g. "2>&1"). */
     case HasRedirect(op: String)
 
-    /** Match if the command has at least one positional argument that
-      * does NOT start with `-` (i.e. a real file/path/value, not a
-      * flag). Used to distinguish "cat foo.txt" (file read — should be
-      * denied in favor of the Read tool) from bare `cat` or
-      * `cat <<EOF` (stdin passthrough — fine).
-      */
+    /**
+     * Match if the command has at least one positional argument that
+     * does NOT start with `-` (i.e. a real file/path/value, not a
+     * flag). Used to distinguish "cat foo.txt" (file read — should be
+     * denied in favor of the Read tool) from bare `cat` or
+     * `cat <<EOF` (stdin passthrough — fine).
+     */
     case HasPositionalNonFlag
 
-    /** Match if the program (after path normalization) equals one of
-      * the given values. Convenience for the very common
-      * `program in {x, y, z}` case.
-      */
+    /**
+     * Match if the program (after path normalization) equals one of
+     * the given values. Convenience for the very common
+     * `program in {x, y, z}` case.
+     */
     case ProgramIn(programs: List[String])
 
-    /** Strip specified flag+arity patterns from the command args before
-      * evaluating the inner condition. Used to match commands like
-      * `git -C /path status` as if they were `git status`.
-      *
-      * Each entry in `flags` is `(flag, arity)` where arity is how many
-      * subsequent args the flag consumes (0 for bare flags like `--verbose`,
-      * 1 for flags with a value like `-C /path`).
-      */
+    /**
+     * Strip specified flag+arity patterns from the command args before
+     * evaluating the inner condition. Used to match commands like
+     * `git -C /path status` as if they were `git status`.
+     *
+     * Each entry in `flags` is `(flag, arity)` where arity is how many
+     * subsequent args the flag consumes (0 for bare flags like `--verbose`,
+     * 1 for flags with a value like `-C /path`).
+     */
     case Ignoring(flags: List[(String, Int)], inner: Condition)
   }
 
-  /** A single rule. Either has a leaf `action` (the simple form) or a
-    * nested `match` of sub-rules (where the outer `when` gates the
-    * sub-rules and the outer `action` is the fallback if no sub-rule
-    * matched).
-    */
+  /**
+   * A single rule. Either has a leaf `action` (the simple form) or a
+   * nested `match` of sub-rules (where the outer `when` gates the
+   * sub-rules and the outer `action` is the fallback if no sub-rule
+   * matched).
+   */
   final case class RuleEntry(
-    when:     Condition,
-    action:   Option[Decision],
-    nested:   List[RuleEntry] = Nil,
+    when: Condition,
+    action: Option[Decision],
+    nested: List[RuleEntry] = Nil,
     fallback: Option[Decision] = None
   )
 

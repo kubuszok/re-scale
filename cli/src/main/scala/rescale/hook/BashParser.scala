@@ -57,7 +57,7 @@ object BashParser {
 
     def peek(): Token = {
       val saved = pos
-      val tok   = next()
+      val tok = next()
       pos = saved
       tok
     }
@@ -100,7 +100,7 @@ object BashParser {
         case '<' =>
           if (input.startsWith("<<", pos)) {
             pos += 2
-            val delim   = readHeredocDelimiter()
+            val delim = readHeredocDelimiter()
             val content = readHeredocBody(delim)
             Token.Word(content)
           } else {
@@ -122,9 +122,8 @@ object BashParser {
     }
 
     private def skipWhitespace(): Unit = {
-      while (pos < input.length && (input(pos) == ' ' || input(pos) == '\t')) {
+      while (pos < input.length && (input(pos) == ' ' || input(pos) == '\t'))
         pos += 1
-      }
       if (pos + 1 < input.length && input(pos) == '\\' && input(pos + 1) == '\n') {
         pos += 2
         skipWhitespace()
@@ -133,13 +132,13 @@ object BashParser {
 
     private def readWord(): String = {
       val sb = new StringBuilder
-      while (pos < input.length) {
+      while (pos < input.length)
         input(pos) match {
-          case ' ' | '\t' | '\n' | ';' | '|' | '(' | ')'      => return sb.toString
-          case '&'                                            => return sb.toString
-          case '>' if sb.isEmpty || !sb.last.isDigit          => return sb.toString
-          case '>' if sb.nonEmpty && sb.last == '2'           => return sb.toString
-          case '<'                                            => return sb.toString
+          case ' ' | '\t' | '\n' | ';' | '|' | '(' | ')' => return sb.toString
+          case '&'                                       => return sb.toString
+          case '>' if sb.isEmpty || !sb.last.isDigit     => return sb.toString
+          case '>' if sb.nonEmpty && sb.last == '2'      => return sb.toString
+          case '<'                                       => return sb.toString
           case '\'' =>
             pos += 1
             while (pos < input.length && input(pos) != '\'') {
@@ -149,7 +148,7 @@ object BashParser {
             if (pos < input.length) pos += 1
           case '"' =>
             pos += 1
-            while (pos < input.length && input(pos) != '"') {
+            while (pos < input.length && input(pos) != '"')
               if (input(pos) == '\\' && pos + 1 < input.length) {
                 // Escaped character — skip the backslash, keep the next char
                 pos += 1
@@ -188,7 +187,6 @@ object BashParser {
                 sb.append(input(pos))
                 pos += 1
               }
-            }
             if (pos < input.length) pos += 1
           case '\\' if pos + 1 < input.length =>
             pos += 1
@@ -209,15 +207,14 @@ object BashParser {
             sb.append(c)
             pos += 1
         }
-      }
       sb.toString
     }
 
     private def readHeredocDelimiter(): String = {
       skipWhitespace()
-      val sb      = new StringBuilder
+      val sb = new StringBuilder
       var quoting = false
-      while (pos < input.length && input(pos) != '\n') {
+      while (pos < input.length && input(pos) != '\n')
         input(pos) match {
           case '\'' | '"' =>
             quoting = !quoting
@@ -226,7 +223,6 @@ object BashParser {
             sb.append(c)
             pos += 1
         }
-      }
       if (pos < input.length) pos += 1
       sb.toString.trim
     }
@@ -253,9 +249,9 @@ object BashParser {
   }
 
   private def parseExpr(t: Tokenizer): BashExpr = {
-    var left     = parsePipeline(t)
+    var left = parsePipeline(t)
     var continue = true
-    while (continue) {
+    while (continue)
       t.peek() match {
         case Token.And =>
           t.next()
@@ -274,7 +270,6 @@ object BashParser {
         case _ =>
           continue = false
       }
-    }
     left
   }
 
@@ -288,7 +283,7 @@ object BashParser {
     left
   }
 
-  private def parseCommand(t: Tokenizer): BashExpr = {
+  private def parseCommand(t: Tokenizer): BashExpr =
     t.peek() match {
       case Token.DollarParen =>
         t.next()
@@ -303,14 +298,13 @@ object BashParser {
       case _ =>
         parseSimple(t)
     }
-  }
 
   private def parseSimple(t: Tokenizer): BashExpr = {
-    val words     = scala.collection.mutable.ListBuffer.empty[String]
+    val words = scala.collection.mutable.ListBuffer.empty[String]
     val redirects = scala.collection.mutable.ListBuffer.empty[Redirect]
 
     var continue = true
-    while (continue) {
+    while (continue)
       t.peek() match {
         case Token.Word(w) =>
           t.next()
@@ -327,16 +321,16 @@ object BashParser {
         case _ =>
           continue = false
       }
-    }
 
     if (words.isEmpty) BashExpr.Empty
     else BashExpr.Simple(words.head, words.tail.toList, redirects.toList)
   }
 
-  /** Flatten an expression to all `Simple` commands it contains. Used
-    * by the rule evaluator to apply per-command rules across pipes,
-    * chains, and subshells.
-    */
+  /**
+   * Flatten an expression to all `Simple` commands it contains. Used
+   * by the rule evaluator to apply per-command rules across pipes,
+   * chains, and subshells.
+   */
   def allCommands(expr: BashExpr): List[BashExpr.Simple] =
     expr match {
       case s: BashExpr.Simple      => List(s)

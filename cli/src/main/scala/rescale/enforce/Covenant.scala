@@ -37,18 +37,19 @@ import java.io.File
 object Covenant {
 
   final case class Header(
-    covenant:         String, // "full-port", "partial-port", etc.
+    covenant: String, // "full-port", "partial-port", etc.
     baselineSpecPass: Int,
-    baselineLoc:      Int,
-    baselineMethods:  Set[String],
-    sourceReference:  String,
-    verified:         String
+    baselineLoc: Int,
+    baselineMethods: Set[String],
+    sourceReference: String,
+    verified: String
   )
 
-  /** Streaming header parse. Reads at most 80 lines from the file's
-    * top before giving up. Holds zero file content beyond the in-flight
-    * line.
-    */
+  /**
+   * Streaming header parse. Reads at most 80 lines from the file's
+   * top before giving up. Holds zero file content beyond the in-flight
+   * line.
+   */
   def parse(path: Path): IO[Option[Header]] = {
     val initial: ParseAcc = ParseAcc(None, None, None, None, None, None)
     FileOps
@@ -82,12 +83,12 @@ object Covenant {
       .map { acc =>
         acc.covenant.map { c =>
           Header(
-            covenant         = c,
+            covenant = c,
             baselineSpecPass = acc.baseSpecPass.getOrElse(0),
-            baselineLoc      = acc.baseLoc.getOrElse(0),
-            baselineMethods  = acc.baseMethods.getOrElse(Set.empty),
-            sourceReference  = acc.sourceRef.getOrElse(""),
-            verified         = acc.verified.getOrElse("")
+            baselineLoc = acc.baseLoc.getOrElse(0),
+            baselineMethods = acc.baseMethods.getOrElse(Set.empty),
+            sourceReference = acc.sourceRef.getOrElse(""),
+            verified = acc.verified.getOrElse("")
           )
         }
       }
@@ -95,16 +96,17 @@ object Covenant {
 
   def parse(file: File): IO[Option[Header]] = parse(Path.fromNioPath(file.toPath))
 
-  /** Verify a covenanted file. Returns Right(()) on pass, Left(reason)
-    * on fail. Fails on:
-    *   - No covenant header present.
-    *   - Current method set is missing names from `baseline-methods`.
-    *   - `Shortcuts.scanFile` returns any hit.
-    *
-    * Only `full-port` covenants are enforced; other covenant tags
-    * (e.g. `partial-port`) are accepted as-is.
-    */
-  def verify(path: Path): IO[Either[String, Unit]] = {
+  /**
+   * Verify a covenanted file. Returns Right(()) on pass, Left(reason)
+   * on fail. Fails on:
+   *   - No covenant header present.
+   *   - Current method set is missing names from `baseline-methods`.
+   *   - `Shortcuts.scanFile` returns any hit.
+   *
+   * Only `full-port` covenants are enforced; other covenant tags
+   * (e.g. `partial-port`) are accepted as-is.
+   */
+  def verify(path: Path): IO[Either[String, Unit]] =
     parse(path).flatMap {
       case None =>
         IO.pure(Left("no covenant header"))
@@ -113,30 +115,30 @@ object Covenant {
       case Some(header) =>
         for {
           currentMethods <- Methods.extractScalaNames(path)
-          missing         = header.baselineMethods -- currentMethods.toSet
-          shortcutHits   <- Shortcuts.scanFile(path)
-        } yield {
+          missing = header.baselineMethods -- currentMethods.toSet
+          shortcutHits <- Shortcuts.scanFile(path)
+        } yield
           if (missing.nonEmpty)
             Left(s"methods removed since baseline: ${missing.toList.sorted.take(5).mkString(", ")}")
           else if (shortcutHits.nonEmpty)
-            Left(s"shortcuts introduced: ${shortcutHits.size} hit(s), e.g. ${shortcutHits.head.pattern} at line ${shortcutHits.head.line}")
+            Left(
+              s"shortcuts introduced: ${shortcutHits.size} hit(s), e.g. ${shortcutHits.head.pattern} at line ${shortcutHits.head.line}"
+            )
           else
             Right(())
-        }
     }
-  }
 
   def verify(file: File): IO[Either[String, Unit]] = verify(Path.fromNioPath(file.toPath))
 
   // -- internals -------------------------------------------------------
 
-  private final case class ParseAcc(
-    covenant:     Option[String],
+  final private case class ParseAcc(
+    covenant: Option[String],
     baseSpecPass: Option[Int],
-    baseLoc:      Option[Int],
-    baseMethods:  Option[Set[String]],
-    sourceRef:    Option[String],
-    verified:     Option[String]
+    baseLoc: Option[Int],
+    baseMethods: Option[Set[String]],
+    sourceRef: Option[String],
+    verified: Option[String]
   )
 
   // Strip leading `*`, opening block-comment, `//` and surrounding

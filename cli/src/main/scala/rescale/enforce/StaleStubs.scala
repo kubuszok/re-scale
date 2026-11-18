@@ -52,21 +52,24 @@ object StaleStubs {
 
   final case class StaleHit(file: String, line: Int, identifier: String, definedAt: String, comment: String)
 
-  /** A suspect-comment location collected in pass 1. Carries the
-    * candidate identifiers extracted from its ±3-line window so pass 2
-    * can match definitions against them without re-scanning the file.
-    */
+  /**
+   * A suspect-comment location collected in pass 1. Carries the
+   * candidate identifiers extracted from its ±3-line window so pass 2
+   * can match definitions against them without re-scanning the file.
+   */
   final case class Suspect(
-    file:        String,
-    line:        Int,
+    file: String,
+    line: Int,
     commentText: String,
-    candidates:  Set[String]
+    candidates: Set[String]
   )
 
   // -- Patterns ------------------------------------------------------
 
   private val suspectComment: Pattern =
-    Pattern.compile("""(?i)\b(not\s+yet\s+ported|would\s+be\s+used\s+here|would\s+(do|implement|handle)|handled\s+below|for\s+now|stale|TODO)\b""")
+    Pattern.compile(
+      """(?i)\b(not\s+yet\s+ported|would\s+be\s+used\s+here|would\s+(do|implement|handle)|handled\s+below|for\s+now|stale|TODO)\b"""
+    )
 
   private val screamingSnake: Pattern =
     Pattern.compile("""\b([A-Z][A-Z0-9_]{2,})\b""")
@@ -76,27 +79,59 @@ object StaleStubs {
 
   // Definition patterns — same as before, just compiled to Pattern.
   private val pScalaDef: Pattern =
-    Pattern.compile("""^[ \t]*(?:override\s+|final\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|implicit\s+|lazy\s+|inline\s+|transparent\s+)*def\s+(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_$]*))""")
+    Pattern.compile(
+      """^[ \t]*(?:override\s+|final\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|implicit\s+|lazy\s+|inline\s+|transparent\s+)*def\s+(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_$]*))"""
+    )
 
   private val pScalaVal: Pattern =
-    Pattern.compile("""^[ \t]{0,4}(?:override\s+|final\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|implicit\s+|lazy\s+|inline\s+)*(?:val|var)\s+([A-Za-z_][A-Za-z0-9_$]*)""")
+    Pattern.compile(
+      """^[ \t]{0,4}(?:override\s+|final\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|implicit\s+|lazy\s+|inline\s+)*(?:val|var)\s+([A-Za-z_][A-Za-z0-9_$]*)"""
+    )
 
   private val pScalaType: Pattern =
-    Pattern.compile("""^[ \t]*(?:sealed\s+|final\s+|abstract\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|open\s+|case\s+)*(?:class|trait|object|enum)\s+([A-Za-z_][A-Za-z0-9_$]*)""")
+    Pattern.compile(
+      """^[ \t]*(?:sealed\s+|final\s+|abstract\s+|private(?:\[[^\]]+\])?\s+|protected(?:\[[^\]]+\])?\s+|open\s+|case\s+)*(?:class|trait|object|enum)\s+([A-Za-z_][A-Za-z0-9_$]*)"""
+    )
 
   private val ExcludeIdentifiers: Set[String] = Set(
-    "TODO", "FIXME", "HACK", "XXX", "NOTE", "BUG", "WARNING",
-    "API", "URL", "URI", "UUID", "JSON", "XML", "HTML", "CSS", "JS", "MD",
-    "SSG", "JVM", "AST", "DOM", "CLI", "CI", "OK", "ERR",
-    "TRUE", "FALSE", "NULL", "NIL"
+    "TODO",
+    "FIXME",
+    "HACK",
+    "XXX",
+    "NOTE",
+    "BUG",
+    "WARNING",
+    "API",
+    "URL",
+    "URI",
+    "UUID",
+    "JSON",
+    "XML",
+    "HTML",
+    "CSS",
+    "JS",
+    "MD",
+    "SSG",
+    "JVM",
+    "AST",
+    "DOM",
+    "CLI",
+    "CI",
+    "OK",
+    "ERR",
+    "TRUE",
+    "FALSE",
+    "NULL",
+    "NIL"
   )
 
   // -- Public API ----------------------------------------------------
 
-  /** Run the full two-pass scan. Returns a Stream of hits — the caller
-    * decides whether to print them as they arrive (truly constant
-    * memory) or fold them into a List for batch reporting.
-    */
+  /**
+   * Run the full two-pass scan. Returns a Stream of hits — the caller
+   * decides whether to print them as they arrive (truly constant
+   * memory) or fold them into a List for batch reporting.
+   */
   def scan(srcDirs: List[File]): Stream[IO, StaleHit] = {
     val rootPaths = srcDirs.filter(_.isDirectory).map(d => Path.fromNioPath(d.toPath))
     Stream.eval(collectSuspects(rootPaths)).flatMap { suspects =>
@@ -115,16 +150,18 @@ object StaleStubs {
     }
   }
 
-  /** Caller-side helper: run the scan and fold the resulting hit stream
-    * into a List. Use this for `enforce stale-stubs` where the result
-    * is printed in a single batch at the end.
-    */
+  /**
+   * Caller-side helper: run the scan and fold the resulting hit stream
+   * into a List. Use this for `enforce stale-stubs` where the result
+   * is printed in a single batch at the end.
+   */
   def scanList(srcDirs: List[File]): IO[List[StaleHit]] =
     scan(srcDirs).compile.toList
 
-  /** Walk the source roots through fs2.io.file.Files and run the
-    * suspect-collection pipe per file.
-    */
+  /**
+   * Walk the source roots through fs2.io.file.Files and run the
+   * suspect-collection pipe per file.
+   */
   private def collectSuspects(roots: List[Path]): IO[List[Suspect]] =
     Stream
       .emits(roots)
@@ -133,13 +170,14 @@ object StaleStubs {
       .compile
       .toList
 
-  /** Walk the source roots a SECOND time and emit StaleHits as we find
-    * matching definitions. The hit stream is constant-memory per
-    * emission; the caller decides what to do with it.
-    */
+  /**
+   * Walk the source roots a SECOND time and emit StaleHits as we find
+   * matching definitions. The hit stream is constant-memory per
+   * emission; the caller decides what to do with it.
+   */
   private def scanDefinitionsAndEmitHits(
-    roots:       List[Path],
-    needed:      Set[String],
+    roots: List[Path],
+    needed: Set[String],
     byCandidate: Map[String, List[Suspect]]
   ): Stream[IO, StaleHit] =
     Stream
@@ -152,10 +190,11 @@ object StaleStubs {
         })
       }
 
-  /** Lazy walk: emit every `.scala` regular file under `root`. Uses
-    * `Files[IO].walk` so the directory traversal is itself a stream
-    * with backpressure — we never materialize the full file list.
-    */
+  /**
+   * Lazy walk: emit every `.scala` regular file under `root`. Uses
+   * `Files[IO].walk` so the directory traversal is itself a stream
+   * with backpressure — we never materialize the full file list.
+   */
   private def walkScalaFiles(root: Path): Stream[IO, Path] =
     Files[IO]
       .walk(root)
@@ -164,33 +203,34 @@ object StaleStubs {
 
   // -- Pass 1: stream suspects out of one file -----------------------
 
-  /** Per-file pass-1 worker. Reads the file via FS2 streaming with a
-    * 7-line ring buffer; emits a Suspect for every line whose middle
-    * slot contains a "not yet ported"-style comment. The candidate
-    * identifiers are the SCREAMING_SNAKE + Class.MEMBER tokens found
-    * anywhere in the 7-line window.
-    *
-    * The ring buffer holds at most 7 line strings — total per-file
-    * working set is bounded by 7 line widths.
-    */
+  /**
+   * Per-file pass-1 worker. Reads the file via FS2 streaming with a
+   * 7-line ring buffer; emits a Suspect for every line whose middle
+   * slot contains a "not yet ported"-style comment. The candidate
+   * identifiers are the SCREAMING_SNAKE + Class.MEMBER tokens found
+   * anywhere in the 7-line window.
+   *
+   * The ring buffer holds at most 7 line strings — total per-file
+   * working set is bounded by 7 line widths.
+   */
   private def streamSuspects(path: Path): Stream[IO, Suspect] = {
     val file = path.toString
     val ring = new Array[String](7)
     val nums = new Array[Int](7)
-    var head = 3      // pre-fill 3 empty slots so line 1 becomes the middle
+    var head = 3 // pre-fill 3 empty slots so line 1 becomes the middle
     var filled = 3
     var inHeader = true
-    var lineNum  = 0
+    var lineNum = 0
 
     // Reusable matchers — allocated once per file, reset per check.
     val mSuspect = suspectComment.matcher("")
-    val mSnake   = screamingSnake.matcher("")
-    val mMember  = classMember.matcher("")
+    val mSnake = screamingSnake.matcher("")
+    val mMember = classMember.matcher("")
 
     def midSlot: Int = (head + 3) % 7
 
     def maybeEmit: List[Suspect] = {
-      val ms  = midSlot
+      val ms = midSlot
       val cur = ring(ms)
       val cln = nums(ms)
       if (cur == null || cur.isEmpty || cln == 0) Nil
@@ -207,7 +247,7 @@ object StaleStubs {
               mMember.reset(l)
               while (mMember.find()) {
                 val full = mMember.group(1) + "." + mMember.group(2)
-                val mem  = mMember.group(2)
+                val mem = mMember.group(2)
                 cands += full
                 cands += mem
               }
@@ -276,13 +316,14 @@ object StaleStubs {
 
   // -- Pass 2: stream definitions whose name is in `needed` ----------
 
-  /** Stream every defined identifier name from a file. Per-line regex
-    * scanning with reusable matchers. Only emits names that appear in
-    * `needed`, so the per-file output is bounded by hit count.
-    */
+  /**
+   * Stream every defined identifier name from a file. Per-line regex
+   * scanning with reusable matchers. Only emits names that appear in
+   * `needed`, so the per-file output is bounded by hit count.
+   */
   private def streamDefinitions(path: Path, needed: Set[String]): Stream[IO, String] = {
-    val mDef  = pScalaDef.matcher("")
-    val mVal  = pScalaVal.matcher("")
+    val mDef = pScalaDef.matcher("")
+    val mVal = pScalaVal.matcher("")
     val mType = pScalaType.matcher("")
 
     val pipe: Pipe[IO, String, String] = _.flatMap { line =>
@@ -322,10 +363,11 @@ object StaleStubs {
 
   // -- Backward-compat helpers (used by tests) -----------------------
 
-  /** Test-friendly: scan a single file against an explicit identifier
-    * index. Used by `StaleStubsSpec`. The two-pass production path
-    * doesn't need this, but the test fixtures rely on it.
-    */
+  /**
+   * Test-friendly: scan a single file against an explicit identifier
+   * index. Used by `StaleStubsSpec`. The two-pass production path
+   * doesn't need this, but the test fixtures rely on it.
+   */
   def scanFile(path: Path, index: Set[String]): IO[List[StaleHit]] = {
     val file = path.toString
     streamSuspects(path).compile.toList.map { suspects =>
@@ -341,13 +383,14 @@ object StaleStubs {
   def scanFile(file: File, index: Set[String]): IO[List[StaleHit]] =
     scanFile(Path.fromNioPath(file.toPath), index)
 
-  /** Legacy test helper: build a Set[String] index. Kept ONLY for the
-    * test suite — production code uses the two-pass `scan` instead.
-    *
-    * This implementation is itself bounded-memory: it streams files
-    * and accumulates names in a single shared mutable.HashSet, then
-    * snapshots to an immutable Set at the end.
-    */
+  /**
+   * Legacy test helper: build a Set[String] index. Kept ONLY for the
+   * test suite — production code uses the two-pass `scan` instead.
+   *
+   * This implementation is itself bounded-memory: it streams files
+   * and accumulates names in a single shared mutable.HashSet, then
+   * snapshots to an immutable Set at the end.
+   */
   def buildIndex(srcDirs: List[File]): IO[Set[String]] = {
     val acc = mutable.HashSet.empty[String]
     val rootPaths = srcDirs.filter(_.isDirectory).map(d => Path.fromNioPath(d.toPath))
@@ -361,9 +404,9 @@ object StaleStubs {
   }
 
   private def indexOneFile(path: Path, acc: mutable.HashSet[String]): IO[Unit] = {
-    val mDef   = pScalaDef.matcher("")
-    val mVal   = pScalaVal.matcher("")
-    val mType  = pScalaType.matcher("")
+    val mDef = pScalaDef.matcher("")
+    val mVal = pScalaVal.matcher("")
+    val mType = pScalaType.matcher("")
     val mSnake = screamingSnake.matcher("")
 
     val pipe: Pipe[IO, String, Unit] = _.evalMap { line =>
@@ -419,9 +462,10 @@ object StaleStubs {
       .drain
   }
 
-  /** Legacy test helper: scan a directory for stale stubs against an
-    * explicit pre-built index. Used by `StaleStubsSpec`.
-    */
+  /**
+   * Legacy test helper: scan a directory for stale stubs against an
+   * explicit pre-built index. Used by `StaleStubsSpec`.
+   */
   def scanDir(dir: File, index: Set[String]): IO[List[StaleHit]] = {
     val root = Path.fromNioPath(dir.toPath)
     walkScalaFiles(root).evalMap(p => scanFile(p, index)).compile.fold(List.empty[StaleHit])(_ ++ _)

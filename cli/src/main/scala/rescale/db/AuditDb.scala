@@ -24,11 +24,11 @@ object AuditDb {
     args match {
       case Nil | "--help" :: _ =>
         IO.println(usage).as(ExitCode.Success)
-      case "list" :: rest  => list(Cli.parse(rest))
-      case "get" :: rest   => get(Cli.parse(rest))
-      case "set" :: rest   => set(Cli.parse(rest))
-      case "stats" :: _    => stats()
-      case other :: _      =>
+      case "list" :: rest => list(Cli.parse(rest))
+      case "get" :: rest  => get(Cli.parse(rest))
+      case "set" :: rest  => set(Cli.parse(rest))
+      case "stats" :: _   => stats()
+      case other :: _ =>
         IO(Term.err(s"Unknown audit command: $other")).as(ExitCode.Error)
     }
 
@@ -37,8 +37,8 @@ object AuditDb {
       file <- auditFile
       base <- loadOrEmpty(file)
       filtered = applyFilters(base, args)
-      paged    = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
-      _        = printTable(paged)
+      paged = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
+      _ = printTable(paged)
     } yield ExitCode.Success
 
   def get(args: Cli.Args): IO[ExitCode] = {
@@ -47,11 +47,11 @@ object AuditDb {
       file <- auditFile
       base <- loadOrEmpty(file)
       _ <- base.find(_.getOrElse("file_path", "").contains(path)) match {
-             case Some(row) =>
-               IO(headers.foreach(h => println(s"  $h: ${row.getOrElse(h, "")}")))
-             case None =>
-               IO(Term.err(s"Not found: $path"))
-           }
+        case Some(row) =>
+          IO(headers.foreach(h => println(s"  $h: ${row.getOrElse(h, "")}")))
+        case None =>
+          IO(Term.err(s"Not found: $path"))
+      }
     } yield ExitCode.Success
   }
 
@@ -66,25 +66,25 @@ object AuditDb {
 
     for {
       file <- auditFile
-      _    <- Tsv.modify(file) { loaded =>
-                val tbl = if (loaded.headers.isEmpty)
-                  Table(headers, Nil, List("# re-scale Audit Database"))
-                else loaded
-                if (tbl.rows.exists(_.getOrElse("file_path", "") == path)) {
-                  tbl.updateRow(_.getOrElse("file_path", "") == path, updatesMap)
-                } else {
-                  val pkg = path.split("/").dropRight(1).lastOption.getOrElse("")
-                  val row = Map(
-                    "file_path"    -> path,
-                    "package"      -> pkg,
-                    "status"       -> updatesMap.getOrElse("status", "pass"),
-                    "tested"       -> updatesMap.getOrElse("tested", "no"),
-                    "last_audited" -> updatesMap.getOrElse("last_audited", LocalDate.now().toString),
-                    "notes"        -> updatesMap.getOrElse("notes", "")
-                  )
-                  tbl.addRow(row)
-                }
-              }
+      _ <- Tsv.modify(file) { loaded =>
+        val tbl = if (loaded.headers.isEmpty)
+          Table(headers, Nil, List("# re-scale Audit Database"))
+        else loaded
+        if (tbl.rows.exists(_.getOrElse("file_path", "") == path)) {
+          tbl.updateRow(_.getOrElse("file_path", "") == path, updatesMap)
+        } else {
+          val pkg = path.split("/").dropRight(1).lastOption.getOrElse("")
+          val row = Map(
+            "file_path" -> path,
+            "package" -> pkg,
+            "status" -> updatesMap.getOrElse("status", "pass"),
+            "tested" -> updatesMap.getOrElse("tested", "no"),
+            "last_audited" -> updatesMap.getOrElse("last_audited", LocalDate.now().toString),
+            "notes" -> updatesMap.getOrElse("notes", "")
+          )
+          tbl.addRow(row)
+        }
+      }
       _ <- IO(Term.ok(s"Updated: $path"))
     } yield ExitCode.Success
   }
@@ -92,18 +92,18 @@ object AuditDb {
   def stats(): IO[ExitCode] =
     for {
       file <- auditFile
-      tbl  <- loadOrEmpty(file)
+      tbl <- loadOrEmpty(file)
       _ <- IO {
-             println("=== Audit Summary ===")
-             tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
-             println(f"  ${"Total"}%-20s ${tbl.size}%d")
-             println()
-             println("=== By Package ===")
-             tbl.stats("package").toList.sortBy(_._1).foreach { case (p, c) => println(f"  $p%-30s $c%d") }
-             println()
-             println("=== Test Coverage ===")
-             tbl.stats("tested").toList.sortBy(-_._2).foreach { case (t, c) => println(f"  $t%-15s $c%d") }
-           }
+        println("=== Audit Summary ===")
+        tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
+        println(f"  ${"Total"}%-20s ${tbl.size}%d")
+        println()
+        println("=== By Package ===")
+        tbl.stats("package").toList.sortBy(_._1).foreach { case (p, c) => println(f"  $p%-30s $c%d") }
+        println()
+        println("=== Test Coverage ===")
+        tbl.stats("tested").toList.sortBy(-_._2).foreach { case (t, c) => println(f"  $t%-15s $c%d") }
+      }
     } yield ExitCode.Success
 
   // -- helpers ---------------------------------------------------------

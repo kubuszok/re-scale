@@ -49,7 +49,7 @@ final class SkipPolicySpec extends CatsEffectSuite {
     val f = tempFile()
     val e = SkipPolicy.Entry("ssg-md/foo.scala", "shortcuts", "vendored", "2026-04-08", "dev")
     for {
-      _       <- SkipPolicy.add(f, e)
+      _ <- SkipPolicy.add(f, e)
       entries <- SkipPolicy.read(f)
     } yield {
       assertEquals(entries.size, 1)

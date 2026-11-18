@@ -28,27 +28,28 @@ import scala.util.matching.Regex.Match
 
 object Runner {
 
-  /** Streaming sink that scans each subprocess line as it arrives,
-    * capturing the first success-regex match and keeping up to
-    * `maxFailure` **distinct** lines that match any failure pattern.
-    *
-    * Memory footprint: O(maxFailure line lengths). Once the failure
-    * buffer is full, later matching lines are dropped on the floor —
-    * the in-process footprint never grows with subprocess output
-    * length.
-    *
-    * Thread safety: stdout and stderr reader threads both land in
-    * [[onLine]]. The whole sink is synchronized to keep the first-
-    * match race and the dedup set consistent.
-    */
-  private final class OutcomeSink(
-    successRegex:    Option[Regex],
+  /**
+   * Streaming sink that scans each subprocess line as it arrives,
+   * capturing the first success-regex match and keeping up to
+   * `maxFailure` **distinct** lines that match any failure pattern.
+   *
+   * Memory footprint: O(maxFailure line lengths). Once the failure
+   * buffer is full, later matching lines are dropped on the floor —
+   * the in-process footprint never grows with subprocess output
+   * length.
+   *
+   * Thread safety: stdout and stderr reader threads both land in
+   * [[onLine]]. The whole sink is synchronized to keep the first-
+   * match race and the dedup set consistent.
+   */
+  final private class OutcomeSink(
+    successRegex: Option[Regex],
     failurePatterns: List[String],
-    maxFailure:      Int
+    maxFailure: Int
   ) extends Proc.LineSink {
-    private var firstMatch: Option[Match]    = None
-    private val failures                     = new java.util.LinkedHashSet[String]()
-    private val failuresEnabled              = failurePatterns.nonEmpty && maxFailure > 0
+    private var firstMatch: Option[Match] = None
+    private val failures = new java.util.LinkedHashSet[String]()
+    private val failuresEnabled = failurePatterns.nonEmpty && maxFailure > 0
 
     def onOut(line: String): Unit = onLine(line)
     def onErr(line: String): Unit = onLine(line)
@@ -79,21 +80,22 @@ object Runner {
     }
   }
 
-  /** Result of running a runner: success flag, captured numeric/text
-    * values from the success-regex, and the trimmed failure tail when
-    * the runner failed.
-    */
+  /**
+   * Result of running a runner: success flag, captured numeric/text
+   * values from the success-regex, and the trimmed failure tail when
+   * the runner failed.
+   */
   final case class Outcome(
-    ok:           Boolean,
-    captures:     Map[String, String],
-    exitCode:     Int,
+    ok: Boolean,
+    captures: Map[String, String],
+    exitCode: Int,
     failureLines: List[String]
   )
 
   /** Run a configured runner with optional mode + positional args. */
   def run(
     runner: RunnersConfig.Runner,
-    mode:   Option[String],
+    mode: Option[String],
     posArgs: List[String],
     projectRoot: File
   ): IO[Outcome] = {
@@ -112,56 +114,57 @@ object Runner {
     val sink = new OutcomeSink(successRegex, failurePatterns, maxFailure)
 
     for {
-      _      <- writeModeFile(runner, mode, posArgs, projectRoot)
+      _ <- writeModeFile(runner, mode, posArgs, projectRoot)
       cwdFile = runner.invoke.cwd
-                  .map(p => new File(resolveCwd(p, projectRoot)))
-                  .getOrElse(projectRoot)
-      exit   <- Proc.runStreamed(
-                  runner.invoke.command,
-                  runner.invoke.args.getOrElse(Nil),
-                  cwd = Some(cwdFile),
-                  sink = sink
-                )
+        .map(p => new File(resolveCwd(p, projectRoot)))
+        .getOrElse(projectRoot)
+      exit <- Proc.runStreamed(
+        runner.invoke.command,
+        runner.invoke.args.getOrElse(Nil),
+        cwd = Some(cwdFile),
+        sink = sink
+      )
       (firstMatch, failureLines) = sink.snapshot()
       captures = firstMatch match {
-        case None    => Map.empty[String, String]
+        case None => Map.empty[String, String]
         case Some(m) =>
           capture.flatMap { case (name, group) =>
             if (group <= m.groupCount) Some(name -> m.group(group)) else None
           }
       }
     } yield Outcome(
-      ok           = exit == 0,
-      captures     = captures,
-      exitCode     = exit,
+      ok = exit == 0,
+      captures = captures,
+      exitCode = exit,
       failureLines = if (exit == 0) Nil else failureLines
     )
   }
 
-  /** Write the mode file with the resolved mode key-value pairs.
-    * Replaces `$1`/`$2`/... in the values with positional args.
-    *
-    * Mode file is OVERWRITTEN unconditionally — never appended.
-    * The runner contract is "read on entry, delete on entry, write
-    * never": if a previous run crashed and left a stale file, we
-    * blow it away here.
-    */
+  /**
+   * Write the mode file with the resolved mode key-value pairs.
+   * Replaces `$1`/`$2`/... in the values with positional args.
+   *
+   * Mode file is OVERWRITTEN unconditionally — never appended.
+   * The runner contract is "read on entry, delete on entry, write
+   * never": if a previous run crashed and left a stale file, we
+   * blow it away here.
+   */
   private def writeModeFile(
-    runner:      RunnersConfig.Runner,
-    mode:        Option[String],
-    posArgs:     List[String],
+    runner: RunnersConfig.Runner,
+    mode: Option[String],
+    posArgs: List[String],
     projectRoot: File
-  ): IO[Unit] = {
+  ): IO[Unit] =
     runner.`mode-file` match {
       case None => IO.unit
       case Some(mf) =>
-        val abs    = resolveCwd(mf.path, projectRoot)
+        val abs = resolveCwd(mf.path, projectRoot)
         val parent = new File(abs).getParentFile
-        val pairs  = mode match {
-          case None       => Map.empty[String, String]
+        val pairs = mode match {
+          case None => Map.empty[String, String]
           case Some(name) =>
             runner.modes.get(name) match {
-              case None        => Map.empty[String, String]
+              case None => Map.empty[String, String]
               case Some(pairs) =>
                 pairs.map { case (k, v) => k -> resolvePosArgs(v, posArgs) }
             }
@@ -179,7 +182,6 @@ object Runner {
           } finally w.close()
         }
     }
-  }
 
   /** Replace `$1`/`$2`/... placeholders in a value with positional args. */
   private def resolvePosArgs(value: String, posArgs: List[String]): String = {
@@ -190,9 +192,8 @@ object Runner {
     out
   }
 
-  private def resolveCwd(path: String, projectRoot: File): String = {
+  private def resolveCwd(path: String, projectRoot: File): String =
     if (path.startsWith("/")) path
     else new File(projectRoot, path).getAbsolutePath
-  }
 
 }

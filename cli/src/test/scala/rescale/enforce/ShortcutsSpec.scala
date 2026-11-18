@@ -27,7 +27,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   // -- Always rules ---------------------------------------------------
 
   test("flags TODO/FIXME/HACK/XXX") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """package x
         |class A {
         |  def foo: Int = 1 // TODO
@@ -47,7 +48,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("flags ??? scala-unimpl marker") {
-    val f = writeFile("u.scala",
+    val f = writeFile(
+      "u.scala",
       """package x
         |object U { def thing: Int = ??? }
         |""".stripMargin
@@ -58,7 +60,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("flags UnsupportedOperationException") {
-    val f = writeFile("u.scala",
+    val f = writeFile(
+      "u.scala",
       """package x
         |object U { def thing: Int = throw new UnsupportedOperationException("nope") }
         |""".stripMargin
@@ -69,7 +72,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("flags Phase 1 anti-cheat null casts") {
-    val f = writeFile("c.scala",
+    val f = writeFile(
+      "c.scala",
       """package x
         |object C {
         |  val a = null.asInstanceOf[String]
@@ -87,7 +91,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("flags throw-not-yet exception pattern") {
-    val f = writeFile("ny.scala",
+    val f = writeFile(
+      "ny.scala",
       """package x
         |object N {
         |  def call(): Int = throw new RuntimeException("not yet implemented")
@@ -102,7 +107,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   // -- CommentOnly rules ----------------------------------------------
 
   test("comment-only: 'simplified' in a comment counts; in code does not") {
-    val f = writeFile("s.scala",
+    val f = writeFile(
+      "s.scala",
       """package x
         |object S {
         |  // simplified version of upstream
@@ -117,7 +123,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("Phase 1 comment-only: 'for now', 'would be used here', 'handled below'") {
-    val f = writeFile("c.scala",
+    val f = writeFile(
+      "c.scala",
       """package x
         |object C {
         |  // for now we punt on this
@@ -136,7 +143,8 @@ final class ShortcutsSpec extends CatsEffectSuite {
   }
 
   test("Apache header is skipped (no false positives on TODO in license)") {
-    val f = writeFile("h.scala",
+    val f = writeFile(
+      "h.scala",
       """/*
         | * Copyright 2026 acme
         | * TODO this would be a false positive without skip
@@ -152,7 +160,7 @@ final class ShortcutsSpec extends CatsEffectSuite {
 
   test("scanFile on a non-existent path returns empty") {
     Shortcuts.scanFile(new File("/tmp/does-not-exist-rescale-test.scala")).attempt.map {
-      case Left(_)  => ()  // streamLines on a missing file errors — that's fine
+      case Left(_)  => () // streamLines on a missing file errors — that's fine
       case Right(h) => assert(h.isEmpty)
     }
   }

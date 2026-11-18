@@ -109,7 +109,10 @@ final class Ssg944FileMemoryBoundSpec extends FunSuite {
 
   private def assumeEnvironment(): Unit = {
     assume(Files.isDirectory(ssgRoot), s"SSG checkout not found at $ssgRoot")
-    assume(Files.isExecutable(reScaleWrapper), s"re-scale wrapper not staged at $reScaleWrapper — run `sbt stage` first")
+    assume(
+      Files.isExecutable(reScaleWrapper),
+      s"re-scale wrapper not staged at $reScaleWrapper — run `sbt stage` first"
+    )
     val count = ssgFileCount.getOrElse(0)
     assume(count >= 800, s"SSG corpus too small ($count files) — expected ~944")
   }
@@ -137,8 +140,8 @@ final class Ssg944FileMemoryBoundSpec extends FunSuite {
   // -- Helpers -----------------------------------------------------------
 
   private def assertUnderBudget(r: MeasureResult, label: String): Unit = {
-    val rssMiB      = r.maxRssBytes.toDouble / (1024.0 * 1024.0)
-    val budgetMiB   = budgetBytes.toDouble / (1024.0 * 1024.0)
+    val rssMiB = r.maxRssBytes.toDouble / (1024.0 * 1024.0)
+    val budgetMiB = budgetBytes.toDouble / (1024.0 * 1024.0)
     val msg = f"$label: peak RSS $rssMiB%.1f MiB (budget $budgetMiB%.0f MiB), wall ${r.wallSeconds}%.1fs"
     assert(r.maxRssBytes < budgetBytes, s"$msg — over memory budget")
     assert(r.wallSeconds < walltimeBudgetSec, s"$msg — over time budget (${walltimeBudgetSec}s)")
@@ -152,15 +155,16 @@ object Ssg944FileMemoryBoundSpec {
   final case class MeasureResult(
     maxRssBytes: Long,
     wallSeconds: Double,
-    exitCode:    Int,
-    stdoutTail:  String,
-    stderrTail:  String
+    exitCode: Int,
+    stdoutTail: String,
+    stderrTail: String
   )
 
-  /** Run a subprocess under /usr/bin/time -l (macOS) or /usr/bin/time -v
-    * (Linux), capture its peak RSS, wall time, and exit code. Stdout and
-    * stderr tails are kept for failure diagnostics.
-    */
+  /**
+   * Run a subprocess under /usr/bin/time -l (macOS) or /usr/bin/time -v
+   * (Linux), capture its peak RSS, wall time, and exit code. Stdout and
+   * stderr tails are kept for failure diagnostics.
+   */
   def runAndMeasure(cmd: List[String], cwd: File): MeasureResult = {
     val isMac = sys.props.getOrElse("os.name", "").toLowerCase.contains("mac")
     val timeBin = if (isMac) "/usr/bin/time" else "/usr/bin/time"
@@ -182,23 +186,24 @@ object Ssg944FileMemoryBoundSpec {
     MeasureResult(
       maxRssBytes = maxRssBytes,
       wallSeconds = wallSeconds,
-      exitCode    = exit,
-      stdoutTail  = stdoutBuf.toString.takeRight(2048),
-      stderrTail  = stderrBuf.toString.takeRight(2048)
+      exitCode = exit,
+      stdoutTail = stdoutBuf.toString.takeRight(2048),
+      stderrTail = stderrBuf.toString.takeRight(2048)
     )
   }
 
-  /** Parse the peak RSS out of `/usr/bin/time` output.
-    *
-    * macOS `time -l` emits lines like:
-    *     574358320  peak memory footprint
-    *     577781760  maximum resident set size
-    * where values are in bytes.
-    *
-    * Linux `time -v` emits:
-    *     Maximum resident set size (kbytes): 123456
-    * where the value is in KB.
-    */
+  /**
+   * Parse the peak RSS out of `/usr/bin/time` output.
+   *
+   * macOS `time -l` emits lines like:
+   *     574358320  peak memory footprint
+   *     577781760  maximum resident set size
+   * where values are in bytes.
+   *
+   * Linux `time -v` emits:
+   *     Maximum resident set size (kbytes): 123456
+   * where the value is in KB.
+   */
   private def parseMaxRss(stderrOutput: String, isMac: Boolean): Long = {
     val lines = stderrOutput.linesIterator.toList
     if (isMac) {

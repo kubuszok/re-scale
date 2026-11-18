@@ -17,7 +17,8 @@ import java.time.LocalDate
 
 object IssuesDb {
 
-  val headers: List[String] = List("id", "file_path", "category", "status", "severity", "description", "last_updated", "source")
+  val headers: List[String] =
+    List("id", "file_path", "category", "status", "severity", "description", "last_updated", "source")
 
   def run(args: List[String]): IO[ExitCode] =
     args match {
@@ -37,40 +38,40 @@ object IssuesDb {
       file <- issuesFile
       base <- loadOrEmpty(file)
       filtered = applyFilters(base, args)
-      paged    = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
-      _        = printTable(paged)
+      paged = filtered.paginate(args.flag("limit").map(_.toInt), args.flag("offset").map(_.toInt))
+      _ = printTable(paged)
     } yield ExitCode.Success
 
   def add(args: Cli.Args): IO[ExitCode] = {
-    val filePath    = args.requirePositional(0, "file_path")
-    val category    = args.requirePositional(1, "category")
-    val severity    = args.requirePositional(2, "severity")
+    val filePath = args.requirePositional(0, "file_path")
+    val category = args.requirePositional(1, "category")
+    val severity = args.requirePositional(2, "severity")
     val description = args.requirePositional(3, "description")
 
     for {
       file <- issuesFile
       assigned <- Tsv.modifyWith(file) { loaded =>
-                    val tbl = if (loaded.headers.isEmpty)
-                      Table(headers, Nil, List("# re-scale Issues Database"))
-                    else loaded
-                    val nextId = {
-                      val existing = tbl.rows.flatMap(_.get("id")).filter(_.startsWith("ISS-"))
-                      if (existing.isEmpty) 1
-                      else existing.map(_.stripPrefix("ISS-").toIntOption.getOrElse(0)).max + 1
-                    }
-                    val newId = f"ISS-$nextId%03d"
-                    val row = Map(
-                      "id"           -> newId,
-                      "file_path"    -> filePath,
-                      "category"     -> category,
-                      "status"       -> "open",
-                      "severity"     -> severity,
-                      "description"  -> description,
-                      "last_updated" -> LocalDate.now().toString,
-                      "source"       -> "manual"
-                    )
-                    (tbl.addRow(row), newId)
-                  }
+        val tbl = if (loaded.headers.isEmpty)
+          Table(headers, Nil, List("# re-scale Issues Database"))
+        else loaded
+        val nextId = {
+          val existing = tbl.rows.flatMap(_.get("id")).filter(_.startsWith("ISS-"))
+          if (existing.isEmpty) 1
+          else existing.map(_.stripPrefix("ISS-").toIntOption.getOrElse(0)).max + 1
+        }
+        val newId = f"ISS-$nextId%03d"
+        val row = Map(
+          "id" -> newId,
+          "file_path" -> filePath,
+          "category" -> category,
+          "status" -> "open",
+          "severity" -> severity,
+          "description" -> description,
+          "last_updated" -> LocalDate.now().toString,
+          "source" -> "manual"
+        )
+        (tbl.addRow(row), newId)
+      }
       _ <- IO(Term.ok(s"Added: $assigned — $description"))
     } yield ExitCode.Success
   }
@@ -78,7 +79,7 @@ object IssuesDb {
   def resolve(args: Cli.Args): IO[ExitCode] = {
     val id = args.requirePositional(0, "id")
     val updates = scala.collection.mutable.Map[String, String](
-      "status"       -> "resolved",
+      "status" -> "resolved",
       "last_updated" -> LocalDate.now().toString
     )
     args.flag("notes").foreach(n => updates("description") = updates.getOrElse("description", "") + " — " + n)
@@ -87,48 +88,48 @@ object IssuesDb {
     for {
       file <- issuesFile
       found <- Tsv.modifyWith(file) { tbl =>
-                 val isPresent = tbl.rows.exists(_.getOrElse("id", "") == id)
-                 if (!isPresent) (tbl, false)
-                 else (tbl.updateRow(_.getOrElse("id", "") == id, updatesMap), true)
-               }
+        val isPresent = tbl.rows.exists(_.getOrElse("id", "") == id)
+        if (!isPresent) (tbl, false)
+        else (tbl.updateRow(_.getOrElse("id", "") == id, updatesMap), true)
+      }
       result <- if (!found) IO(Term.err(s"Not found: $id")).as(ExitCode.Error)
-                else IO(Term.ok(s"Resolved: $id")).as(ExitCode.Success)
+      else IO(Term.ok(s"Resolved: $id")).as(ExitCode.Success)
     } yield result
   }
 
   def reopen(args: Cli.Args): IO[ExitCode] = {
     val id = args.requirePositional(0, "id")
     val updates = Map(
-      "status"       -> "open",
+      "status" -> "open",
       "last_updated" -> LocalDate.now().toString
     )
     for {
       file <- issuesFile
       found <- Tsv.modifyWith(file) { tbl =>
-                 val isPresent = tbl.rows.exists(_.getOrElse("id", "") == id)
-                 if (!isPresent) (tbl, false)
-                 else (tbl.updateRow(_.getOrElse("id", "") == id, updates), true)
-               }
+        val isPresent = tbl.rows.exists(_.getOrElse("id", "") == id)
+        if (!isPresent) (tbl, false)
+        else (tbl.updateRow(_.getOrElse("id", "") == id, updates), true)
+      }
       result <- if (!found) IO(Term.err(s"Not found: $id")).as(ExitCode.Error)
-                else IO(Term.ok(s"Reopened: $id")).as(ExitCode.Success)
+      else IO(Term.ok(s"Reopened: $id")).as(ExitCode.Success)
     } yield result
   }
 
   def stats(): IO[ExitCode] =
     for {
       file <- issuesFile
-      tbl  <- loadOrEmpty(file)
+      tbl <- loadOrEmpty(file)
       _ <- IO {
-             println("=== Issues Summary ===")
-             tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
-             println(f"  ${"Total"}%-20s ${tbl.size}%d")
-             println()
-             println("=== By Category ===")
-             tbl.stats("category").toList.sortBy(-_._2).foreach { case (c, n) => println(f"  $c%-25s $n%d") }
-             println()
-             println("=== By Severity ===")
-             tbl.stats("severity").toList.sortBy(-_._2).foreach { case (s, n) => println(f"  $s%-15s $n%d") }
-           }
+        println("=== Issues Summary ===")
+        tbl.stats("status").toList.sortBy(-_._2).foreach { case (s, c) => println(f"  $s%-20s $c%d") }
+        println(f"  ${"Total"}%-20s ${tbl.size}%d")
+        println()
+        println("=== By Category ===")
+        tbl.stats("category").toList.sortBy(-_._2).foreach { case (c, n) => println(f"  $c%-25s $n%d") }
+        println()
+        println("=== By Severity ===")
+        tbl.stats("severity").toList.sortBy(-_._2).foreach { case (s, n) => println(f"  $s%-15s $n%d") }
+      }
     } yield ExitCode.Success
 
   // -- helpers ---------------------------------------------------------

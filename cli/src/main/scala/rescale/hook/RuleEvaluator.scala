@@ -40,27 +40,27 @@ object RuleEvaluator {
     compose(perCommand)
   }
 
-  /** Evaluate a single Simple command in isolation, with knowledge of
-    * its surrounding pipeline context (for FollowedBy / PrecededBy).
-    */
+  /**
+   * Evaluate a single Simple command in isolation, with knowledge of
+   * its surrounding pipeline context (for FollowedBy / PrecededBy).
+   */
   private def evaluateCommand(
-    cmd:      BashExpr.Simple,
-    rules:    RuleSet,
+    cmd: BashExpr.Simple,
+    rules: RuleSet,
     pipeline: List[BashExpr.Simple],
-    idx:      Int
-  ): Decision = {
+    idx: Int
+  ): Decision =
     rules.rules.iterator
       .map(r => evaluateRule(r, cmd, pipeline, idx))
       .collectFirst { case Some(d) => d }
       .getOrElse(Decision.Allow)
-  }
 
   /** Returns Some(decision) if the rule matched, None otherwise. */
   private def evaluateRule(
-    entry:    RuleEntry,
-    cmd:      BashParser.BashExpr.Simple,
+    entry: RuleEntry,
+    cmd: BashParser.BashExpr.Simple,
     pipeline: List[BashParser.BashExpr.Simple],
-    idx:      Int
+    idx: Int
   ): Option[Decision] = {
     if (!matches(entry.when, cmd, pipeline, idx)) return None
 
@@ -71,7 +71,7 @@ object RuleEvaluator {
 
     nestedHit match {
       case Some(d) => Some(d)
-      case None =>
+      case None    =>
         // No nested rule matched. Use the leaf action, or the fallback.
         entry.action.orElse(entry.fallback)
     }
@@ -79,17 +79,17 @@ object RuleEvaluator {
 
   /** Recursively evaluate a Condition. */
   private def matches(
-    cond:     Condition,
-    cmd:      BashParser.BashExpr.Simple,
+    cond: Condition,
+    cmd: BashParser.BashExpr.Simple,
     pipeline: List[BashParser.BashExpr.Simple],
-    idx:      Int
-  ): Boolean = {
+    idx: Int
+  ): Boolean =
     cond match {
-      case Condition.True              => true
-      case Condition.False             => false
-      case Condition.And(cs)           => cs.forall(c => matches(c, cmd, pipeline, idx))
-      case Condition.Or(cs)            => cs.exists(c => matches(c, cmd, pipeline, idx))
-      case Condition.Not(c)            => !matches(c, cmd, pipeline, idx)
+      case Condition.True    => true
+      case Condition.False   => false
+      case Condition.And(cs) => cs.forall(c => matches(c, cmd, pipeline, idx))
+      case Condition.Or(cs)  => cs.exists(c => matches(c, cmd, pipeline, idx))
+      case Condition.Not(c)  => !matches(c, cmd, pipeline, idx)
       case Condition.StartsWith(prefix) =>
         startsWith(cmd, prefix)
       case Condition.HasAny(values) =>
@@ -122,20 +122,20 @@ object RuleEvaluator {
         val filtered = stripFlags(cmd, flags)
         matches(inner, filtered, pipeline, idx)
     }
-  }
 
-  /** Strip flag+arity patterns from a command's args.
-    *
-    * For each `(flag, arity)`, when `flag` appears in the args list,
-    * remove it AND the next `arity` args. For example, `("-C", 1)` on
-    * `["-C", "/repo", "status"]` produces `["status"]`.
-    */
+  /**
+   * Strip flag+arity patterns from a command's args.
+   *
+   * For each `(flag, arity)`, when `flag` appears in the args list,
+   * remove it AND the next `arity` args. For example, `("-C", 1)` on
+   * `["-C", "/repo", "status"]` produces `["status"]`.
+   */
   private def stripFlags(cmd: BashExpr.Simple, flags: List[(String, Int)]): BashExpr.Simple = {
     val flagMap = flags.toMap
     val result = scala.collection.mutable.ListBuffer.empty[String]
     var i = 0
     val args = cmd.args
-    while (i < args.length) {
+    while (i < args.length)
       flagMap.get(args(i)) match {
         case Some(arity) =>
           i += 1 + arity // skip the flag + its arguments
@@ -143,36 +143,34 @@ object RuleEvaluator {
           result += args(i)
           i += 1
       }
-    }
     BashExpr.Simple(cmd.program, result.toList, cmd.redirects)
   }
 
   /** Check that program + args start with the given prefix list. */
-  private def startsWith(cmd: BashExpr.Simple, prefix: List[String]): Boolean = {
+  private def startsWith(cmd: BashExpr.Simple, prefix: List[String]): Boolean =
     prefix match {
       case Nil => true
       case head :: tail =>
         if (normalizeProgramName(cmd.program) != head) false
         else cmd.args.take(tail.length) == tail && tail.length <= cmd.args.length
     }
-  }
 
-  /** Strip directory components from a program path so `/usr/bin/find`
-    * matches `find` rules.
-    */
-  def normalizeProgramName(program: String): String = {
+  /**
+   * Strip directory components from a program path so `/usr/bin/find`
+   * matches `find` rules.
+   */
+  def normalizeProgramName(program: String): String =
     if (program.contains("/")) program.split("/").last
     else program
-  }
 
-  /** Compose per-command decisions into a single result.
-    *
-    * The strongest decision wins (Deny > Ask > Pass > Allow). When
-    * multiple commands produce the same maximum strength, the first
-    * one's reason is kept.
-    */
-  def compose(decisions: List[Decision]): Decision = {
+  /**
+   * Compose per-command decisions into a single result.
+   *
+   * The strongest decision wins (Deny > Ask > Pass > Allow). When
+   * multiple commands produce the same maximum strength, the first
+   * one's reason is kept.
+   */
+  def compose(decisions: List[Decision]): Decision =
     if (decisions.isEmpty) Decision.Allow
     else decisions.maxBy(_.strength)
-  }
 }

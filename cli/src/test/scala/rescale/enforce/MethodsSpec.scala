@@ -30,7 +30,8 @@ final class MethodsSpec extends CatsEffectSuite {
   // -- extractScalaNames ----------------------------------------------
 
   test("extractScalaNames returns def/val/var/class/object names") {
-    val f = writeFile("a.scala",
+    val f = writeFile(
+      "a.scala",
       """package ssg
         |
         |object Foo {
@@ -58,7 +59,8 @@ final class MethodsSpec extends CatsEffectSuite {
   // -- extractScalaTokenCounts ----------------------------------------
 
   test("extractScalaTokenCounts emits a body for braced and one-liner methods") {
-    val f = writeFile("b.scala",
+    val f = writeFile(
+      "b.scala",
       """object B {
         |  def short: Int = 1
         |  def medium: Int = {
@@ -79,7 +81,8 @@ final class MethodsSpec extends CatsEffectSuite {
   // -- compareConstructors ---------------------------------------------
 
   test("compareConstructors flags Java ctor params absent from Scala primary ctor") {
-    val javaSrc = writeFile("Foo.java",
+    val javaSrc = writeFile(
+      "Foo.java",
       """package x;
         |public class Foo {
         |  public Foo(BasedSequence chars, List<BasedSequence> segments, int width) {
@@ -88,7 +91,8 @@ final class MethodsSpec extends CatsEffectSuite {
         |}
         |""".stripMargin
     )
-    val scalaSrc = writeFile("Foo.scala",
+    val scalaSrc = writeFile(
+      "Foo.scala",
       """package x
         |final class Foo(val chars: BasedSequence) {
         |  def m: Int = 0
@@ -105,7 +109,8 @@ final class MethodsSpec extends CatsEffectSuite {
   // -- strictCompare --------------------------------------------------
 
   test("strictCompare flags missing methods between source and port") {
-    val javaSrc = writeFile("S.java",
+    val javaSrc = writeFile(
+      "S.java",
       """public class S {
         |  public int alpha() { return 1; }
         |  public int beta() { return 2; }
@@ -113,7 +118,8 @@ final class MethodsSpec extends CatsEffectSuite {
         |}
         |""".stripMargin
     )
-    val scalaSrc = writeFile("S.scala",
+    val scalaSrc = writeFile(
+      "S.scala",
       """object S {
         |  def alpha: Int = 1
         |  def beta: Int = 2

@@ -34,16 +34,16 @@ object FileInfoCmd {
       case _ =>
         val parsed = Cli.parse(args)
         val givenPath = parsed.flagOrDefault("given", ".")
-        val whenExpr  = parsed.flag("when")
-        val thenStr   = parsed.flagOrDefault("then", "select *")
-        val mr        = parsed.hasFlag("machine-readable")
-        val dryRun    = parsed.hasFlag("dry-run")
+        val whenExpr = parsed.flag("when")
+        val thenStr = parsed.flagOrDefault("then", "select *")
+        val mr = parsed.hasFlag("machine-readable")
+        val dryRun = parsed.hasFlag("dry-run")
         dispatch(givenPath, whenExpr, thenStr, mr, dryRun)
     }
 
   // -- action parsing ---------------------------------------------------
 
-  private sealed trait Action
+  sealed private trait Action
   private object Action {
     final case class Select(fields: List[String]) extends Action
     final case class Set(values: Map[String, String]) extends Action
@@ -78,10 +78,10 @@ object FileInfoCmd {
 
   private def dispatch(
     givenPath: String,
-    whenExpr:  Option[String],
-    thenStr:   String,
-    mr:        Boolean,
-    dryRun:    Boolean
+    whenExpr: Option[String],
+    thenStr: String,
+    mr: Boolean,
+    dryRun: Boolean
   ): IO[ExitCode] = {
     val predicate = whenExpr match {
       case None    => Right(None)
@@ -111,9 +111,9 @@ object FileInfoCmd {
 
   private def runSelect(
     givenPath: String,
-    pred:      Option[Predicate.Expr],
-    fields:    List[String],
-    mr:        Boolean
+    pred: Option[Predicate.Expr],
+    fields: List[String],
+    mr: Boolean
   ): IO[ExitCode] =
     Paths.projectRoot.flatMap { root =>
       val stream = resolveGiven(givenPath, root)
@@ -163,10 +163,10 @@ object FileInfoCmd {
 
   private def runSet(
     givenPath: String,
-    pred:      Option[Predicate.Expr],
-    values:    Map[String, String],
-    mr:        Boolean,
-    dryRun:    Boolean
+    pred: Option[Predicate.Expr],
+    values: Map[String, String],
+    mr: Boolean,
+    dryRun: Boolean
   ): IO[ExitCode] =
     Paths.projectRoot.flatMap { root =>
       resolveGiven(givenPath, root)
@@ -190,8 +190,8 @@ object FileInfoCmd {
 
   private def runSyncCheck(
     givenPath: String,
-    pred:      Option[Predicate.Expr],
-    mr:        Boolean
+    pred: Option[Predicate.Expr],
+    mr: Boolean
   ): IO[ExitCode] =
     Paths.projectRoot.flatMap { root =>
       SyncCheck.check(root, resolveGiven(givenPath, root), pred, mr)
@@ -201,9 +201,9 @@ object FileInfoCmd {
 
   private def runTrackCommit(
     givenPath: String,
-    pred:      Option[Predicate.Expr],
-    mr:        Boolean,
-    dryRun:    Boolean
+    pred: Option[Predicate.Expr],
+    mr: Boolean,
+    dryRun: Boolean
   ): IO[ExitCode] =
     Paths.projectRoot.flatMap { root =>
       CommitTracker.run(root, resolveGiven(givenPath, root), pred, mr, dryRun)
@@ -211,7 +211,7 @@ object FileInfoCmd {
 
   // -- path resolution ---------------------------------------------------
 
-  private def resolveGiven(givenPath: String, root: File): Stream[IO, Path] = {
+  private def resolveGiven(givenPath: String, root: File): Stream[IO, Path] =
     if (givenPath == ".") {
       FileOps.streamFilesAcross(Paths.scanTargets(root), ".scala")
     } else {
@@ -237,12 +237,11 @@ object FileInfoCmd {
         )
       }
     }
-  }
 
   // -- helpers -----------------------------------------------------------
 
   private def matchesPredicate(
-    fp:   FileHeader.FileProperties,
+    fp: FileHeader.FileProperties,
     pred: Option[Predicate.Expr]
   ): Boolean =
     pred.forall(Predicate.evaluate(_, fp.properties))

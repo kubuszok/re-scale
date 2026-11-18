@@ -44,13 +44,13 @@ final case class DatabasesConfig(
 object DatabasesConfig {
 
   final case class TableDef(
-    file:     String,
-    key:      String,
-    headers:  List[String],
+    file: String,
+    key: String,
+    headers: List[String],
     defaults: Map[String, String] = Map.empty
   ) derives KindlingsYamlCodec
 
-  def load(configFile: File): Either[String, DatabasesConfig] = {
+  def load(configFile: File): Either[String, DatabasesConfig] =
     if (!configFile.exists()) Right(DatabasesConfig(Map.empty))
     else {
       val src = Source.fromFile(configFile)
@@ -62,17 +62,17 @@ object DatabasesConfig {
         case Right(cfg) => Right(cfg)
       }
     }
-  }
 
   def configPath(root: File): File = new File(root, ".rescale/databases.yaml")
 }
 
 object CustomDb {
 
-  /** Try to handle a `re-scale db <name> <args>` where <name> is a
-    * custom table defined in `.rescale/databases.yaml`. Returns None
-    * if the table isn't defined (so DbCmd can fall back to its error).
-    */
+  /**
+   * Try to handle a `re-scale db <name> <args>` where <name> is a
+   * custom table defined in `.rescale/databases.yaml`. Returns None
+   * if the table isn't defined (so DbCmd can fall back to its error).
+   */
   def tryRun(tableName: String, rest: List[String]): IO[Option[ExitCode]] =
     Paths.projectRoot.flatMap { root =>
       val cfg = DatabasesConfig.configPath(root)
@@ -160,9 +160,9 @@ object CustomDb {
             Term.err(s"No row with ${tbl.key}=$k")
             table
           } else {
-            val row     = table.rows(idx)
+            val row = table.rows(idx)
             val updates = tbl.headers.flatMap(h => args.flag(h).map(h -> _)).toMap
-            val newRow  = row ++ updates
+            val newRow = row ++ updates
             table.copy(rows = table.rows.updated(idx, newRow))
           }
         }.flatMap(_ => IO(Term.ok(s"Updated ${tbl.key}=$keyVal")).as(ExitCode.Success))
@@ -194,10 +194,11 @@ object CustomDb {
     }
   }
 
-  /** Modify a custom table's TSV file, creating it with the correct
-    * headers if it doesn't exist yet.
-    */
-  private def modifyCustom(file: File, tbl: DatabasesConfig.TableDef)(fn: Tsv.Table => Tsv.Table): IO[Tsv.Table] = {
+  /**
+   * Modify a custom table's TSV file, creating it with the correct
+   * headers if it doesn't exist yet.
+   */
+  private def modifyCustom(file: File, tbl: DatabasesConfig.TableDef)(fn: Tsv.Table => Tsv.Table): IO[Tsv.Table] =
     // Ensure the file exists with headers before calling Tsv.modify
     IO.blocking {
       if (!file.exists()) {
@@ -208,7 +209,6 @@ object CustomDb {
         finally w.close()
       }
     } *> Tsv.modify(file)(fn)
-  }
 
   private def stats(file: File, tbl: DatabasesConfig.TableDef): IO[ExitCode] =
     Tsv.readOrEmpty(file, tbl.headers).flatMap { table =>

@@ -51,11 +51,11 @@ final class PathsModulesSpec extends FunSuite {
     val cfgDir = new File(root, ".rescale")
     cfgDir.mkdirs()
     val cfg = new File(cfgDir, "modules.txt")
-    val w   = new PrintWriter(cfg)
+    val w = new PrintWriter(cfg)
     try {
       w.println("# explicit module list")
       w.println("alpha")
-      w.println("custom-name")  // not on disk, but trusted from config
+      w.println("custom-name") // not on disk, but trusted from config
     } finally w.close()
     cfg.deleteOnExit()
     assertEquals(Paths.moduleNames(root), List("alpha", "custom-name"))

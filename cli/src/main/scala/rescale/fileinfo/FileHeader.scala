@@ -19,8 +19,8 @@ object FileHeader {
 
   final case class FileProperties(
     properties: Map[String, String],
-    rawKeys:    Map[String, String],
-    filePath:   String
+    rawKeys: Map[String, String],
+    filePath: String
   )
 
   def parse(path: Path): IO[FileProperties] = {
@@ -33,7 +33,7 @@ object FileHeader {
         if (acc.pastComment) acc
         else {
           val trimmed = line.trim
-          val (inBlock, isComment) = {
+          val (inBlock, isComment) =
             if (acc.inBlockComment) {
               val closed = trimmed.contains("*/")
               (if (closed) false else true, true)
@@ -45,7 +45,6 @@ object FileHeader {
             } else {
               (false, false)
             }
-          }
 
           if (!isComment && trimmed.nonEmpty) {
             acc.copy(inBlockComment = inBlock, pastComment = true)
@@ -91,12 +90,12 @@ object FileHeader {
 
   // -- internals ---------------------------------------------------------
 
-  private final case class ParseAcc(
-    properties:     Map[String, String],
-    rawKeys:        Map[String, String],
+  final private case class ParseAcc(
+    properties: Map[String, String],
+    rawKeys: Map[String, String],
     inBlockComment: Boolean,
-    pastComment:    Boolean,
-    lastKey:        Option[String]
+    pastComment: Boolean,
+    lastKey: Option[String]
   )
 
   private val skipKeys: Set[String] = Set(
@@ -113,21 +112,21 @@ object FileHeader {
       case _                           => None
     }
 
-  private[fileinfo] def normalizeKey(rawKey: String): String = {
+  private[fileinfo] def normalizeKey(rawKey: String): String =
     if (rawKey == "Covenant") "covenant"
     else if (rawKey == "Covenant-dart-reference") "source-reference"
     else if (rawKey.startsWith("Covenant-"))
       rawKey.drop("Covenant-".length).toLowerCase
     else rawKey.toLowerCase
-  }
 
-  /** Detect scalafmt continuation indent: after stripping the leading
-    * comment marker (`*`, `//`), a continuation has 2+ leading spaces
-    * while normal content has exactly 1. This distinguishes:
-    *   ` * Covenant-baseline-methods: a,b,c,`  (1 space → key-value)
-    *   ` *   d,e,f`                             (3 spaces → continuation)
-    *   ` * Some prose text`                     (1 space → not continuation)
-    */
+  /**
+   * Detect scalafmt continuation indent: after stripping the leading
+   * comment marker (`*`, `//`), a continuation has 2+ leading spaces
+   * while normal content has exactly 1. This distinguishes:
+   *   ` * Covenant-baseline-methods: a,b,c,`  (1 space → key-value)
+   *   ` *   d,e,f`                             (3 spaces → continuation)
+   *   ` * Some prose text`                     (1 space → not continuation)
+   */
   private def hasContinuationIndent(line: String): Boolean = {
     val trimmed = line.trim
     val afterPrefix =

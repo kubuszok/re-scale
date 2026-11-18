@@ -32,9 +32,10 @@ final class BackpressureSpec extends CatsEffectSuite {
 
   // -- Fixtures ------------------------------------------------------
 
-  /** Generate a single 100k-line file (~5 MB). Used for streamLines
-    * lazy-consumption tests.
-    */
+  /**
+   * Generate a single 100k-line file (~5 MB). Used for streamLines
+   * lazy-consumption tests.
+   */
   private lazy val largeFile: File = {
     val f = NIOFiles.createTempFile("rescale-backpressure-large-", ".txt").toFile
     f.deleteOnExit()
@@ -49,9 +50,10 @@ final class BackpressureSpec extends CatsEffectSuite {
     f
   }
 
-  /** Generate a 1000-file directory tree. Used for streamFiles
-    * lazy-walk tests.
-    */
+  /**
+   * Generate a 1000-file directory tree. Used for streamFiles
+   * lazy-walk tests.
+   */
   private lazy val largeDir: File = {
     val d = NIOFiles.createTempDirectory("rescale-backpressure-dir-").toFile
     d.deleteOnExit()
@@ -77,7 +79,7 @@ final class BackpressureSpec extends CatsEffectSuite {
     FileOps.streamLines(largeFile).take(5).compile.toList.map { rows =>
       val elapsed = (System.nanoTime() - started) / 1e9
       assertEquals(rows.size, 5)
-      assertEquals(rows.head._1, 1)         // 1-indexed line numbers
+      assertEquals(rows.head._1, 1) // 1-indexed line numbers
       assertEquals(rows.last._1, 5)
       assert(elapsed < 5.0, s"streamLines.take(5) took ${elapsed}s — too slow, likely buffering")
     }

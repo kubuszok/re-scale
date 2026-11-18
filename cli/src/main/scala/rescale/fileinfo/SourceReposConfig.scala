@@ -24,7 +24,9 @@ object SourceReposConfig {
     if (!file.exists()) empty
     else {
       val src = Source.fromFile(file)
-      val text = try src.mkString finally src.close()
+      val text =
+        try src.mkString
+        finally src.close()
       text.as[SourceReposConfig] match {
         case Left(_)    => empty
         case Right(cfg) => cfg
@@ -33,9 +35,9 @@ object SourceReposConfig {
 
   def resolveGitRoot(
     sourceRepos: Map[String, String],
-    sourcePath:  String,
-    sourceLib:   Option[String],
-    root:        File
+    sourcePath: String,
+    sourceLib: Option[String],
+    root: File
   ): (File, String) = {
     val byPrefix = sourceRepos.values.find { subPath =>
       sourcePath.startsWith(subPath + "/")

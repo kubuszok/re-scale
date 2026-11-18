@@ -46,8 +46,8 @@ final class IssuesDbConcurrencySpec extends CatsEffectSuite {
         }
         val id = f"ISS-$nextNum%03d"
         val row = Map(
-          "id"          -> id,
-          "file_path"   -> s"path-$i.scala",
+          "id" -> id,
+          "file_path" -> s"path-$i.scala",
           "description" -> s"writer $i"
         )
         (tbl.addRow(row), id)
@@ -56,8 +56,8 @@ final class IssuesDbConcurrencySpec extends CatsEffectSuite {
     val concurrentAdds: IO[List[String]] = (1 to 20).toList.parTraverse(addOne)
 
     val io = for {
-      _      <- init
-      ids    <- concurrentAdds
+      _ <- init
+      ids <- concurrentAdds
       reread <- Tsv.read(issuesFile)
     } yield (ids, reread)
 

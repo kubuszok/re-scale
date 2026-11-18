@@ -26,7 +26,7 @@ final class BashParserSpec extends FunSuite {
   private def parseSimple(input: String): BashExpr.Simple =
     BashParser.parse(input) match {
       case s: BashExpr.Simple => s
-      case other => fail(s"expected Simple, got: $other")
+      case other              => fail(s"expected Simple, got: $other")
     }
 
   // -- empty / whitespace ---------------------------------------------
@@ -122,21 +122,21 @@ final class BashParserSpec extends FunSuite {
   test("chain with ||") {
     BashParser.parse("test -f foo || echo missing") match {
       case BashExpr.Chain(_, op, _) => assertEquals(op, "||")
-      case other => fail(s"expected Chain, got $other")
+      case other                    => fail(s"expected Chain, got $other")
     }
   }
 
   test("chain with ;") {
     BashParser.parse("cd /tmp ; ls") match {
       case BashExpr.Chain(_, op, _) => assertEquals(op, ";")
-      case other => fail(s"expected Chain, got $other")
+      case other                    => fail(s"expected Chain, got $other")
     }
   }
 
   test("trailing ; produces no extra Empty") {
     BashParser.parse("ls ;") match {
       case s: BashExpr.Simple => assertEquals(s.program, "ls")
-      case other => fail(s"expected Simple, got $other")
+      case other              => fail(s"expected Simple, got $other")
     }
   }
 
@@ -218,7 +218,7 @@ final class BashParserSpec extends FunSuite {
   test("real: cd subdir && command") {
     BashParser.parse("cd /tmp && ls -la") match {
       case BashExpr.Chain(_, "&&", _) => // ok
-      case other => fail(s"expected && Chain, got $other")
+      case other                      => fail(s"expected && Chain, got $other")
     }
   }
 
