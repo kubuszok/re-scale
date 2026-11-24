@@ -34,9 +34,9 @@ jobs:
         with:
           fetch-depth: 0
       - uses: coursier/cache-action@v9
-      - uses: coursier/setup-action@v3.1.0
+      - uses: coursier/setup-action@v3.1.1
         with:
-          jvm: 'temurin:1.17.0.15'
+          jvm: 'temurin:17.0.15'
           apps: sbt
       - name: Install Scala Native build deps (Linux)
         if: runner.os == 'Linux'
@@ -88,9 +88,9 @@ jobs:
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
-      - uses: coursier/setup-action@v3.1.0
+      - uses: coursier/setup-action@v3.1.1
         with:
-          jvm: 'temurin:1.17.0.15'
+          jvm: 'temurin:17.0.15'
           apps: sbt
       - name: Publish all projects
         run: sbt ci-release
